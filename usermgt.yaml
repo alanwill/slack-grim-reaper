@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Slack User Management
+Parameters:
+    stage:
+        Type: String
+        AllowedValues:
+          - alpha
+          - beta
+          - prod
+        Description: Enter alpha, beta or prod to designate the deployment stage/environment
+    notificationsEmail:
+        Type: String
+        AllowedPattern: "^[\\x20-\\x45]?[\\w-\\+]+(\\.[\\w]+)*@[\\w-]+(\\.[\\w]+)*(\\.[a-z]{2,})$"
+        Description: Enter the email address of a person, group or system to be notified of alarms
+    slackToken:
+        Type: String
+        Description: Slack Token
+    azureTenantId:
+        Type: String
+        Description: Azure Tenant Id
+    azureClientId:
+        Type: String
+        Description: Azure Client Id
+    azureClientSecret:
+        Type: String
+        Description: Azure Client Secret
+
+Globals:
+    Function:
+        Runtime: python3.6
+        Handler: handler.handler
+        MemorySize: 128
+        Timeout: 30
+
+Resources:
+###
+# Lambda functions
+###
+    functionSlackUserReporter:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: !Join [ "-", [ "slack-user-reporter", !Ref stage ] ]
+            Description: Slack User Reporter
+            CodeUri: ./sam/functions/slack-user-reporter
+            Timeout: 900
+            MemorySize: 1024
+            Tracing: Active
+            Policies:
+                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+#            Events:
+#                processor:
+#                    Type: Schedule
+#                    Properties:
+#                        Schedule: rate(60 minutes)
+            Environment:
+                Variables:
+                    SLACK_TOKEN: !Ref slackToken
+                    AZURE_TENANT_ID: !Ref azureTenantId
+                    AZURE_CLIENT_ID: !Ref azureClientId
+                    AZURE_CLIENT_SECRET: !Ref azureClientSecret
+                    S3_BUCKET_NAME: !Ref s3Bucket
+
+
+    s3Bucket:
+        Type: AWS::S3::Bucket
+
