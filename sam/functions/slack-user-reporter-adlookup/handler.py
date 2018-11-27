@@ -9,6 +9,7 @@ import csv
 import tempfile
 import datetime
 import re
+import uuid
 
 # Path to modules needed to package local lambda function for upload
 currentdir = os.path.dirname(os.path.realpath(__file__))
@@ -28,90 +29,57 @@ log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 
 # Initialize AWS services
-s3 = boto3.resource('s3')
+dynamodb = boto3.resource('dynamodb')
 
 
 # Initialize variables
-slack_token = os.environ["SLACK_TOKEN"]
 azure_tenant_id = os.environ["AZURE_TENANT_ID"]
 azure_client_id = os.environ["AZURE_CLIENT_ID"]
 azure_client_secret = os.environ["AZURE_CLIENT_SECRET"]
-s3_bucket = os.environ["S3_BUCKET_NAME"]
+table_userprocessing = dynamodb.Table(os.environ['USER_PROCESSING_TABLE'])
 
 
 def handler(event, context):
     log.debug("Received event {}".format(json.dumps(event)))
 
-    user_list = list()
-    slack_users = slack_active_users()
-
+    index = event['iterator']['index']
+    guid = event['iterator']['guid']
     access_token = azure_auth(azure_tenant_id, azure_client_id, azure_client_secret)
 
-    for user in slack_users:
-        azuread_response = azuread_users(user, access_token)
-        if azuread_response['status'] == 'OK':
-            user_list.append([azuread_response['email'],
-                             azuread_response['department'],
-                             azuread_response['division']])
-
-    print("length of user_list is", len(user_list))
-    convert_to_csv(user_list)
+    azuread_users(user_email=lookup_record(index, guid),
+                  access_token=access_token,
+                  guid=guid,
+                  index=index)
 
     return
 
 
-def convert_to_csv(buffer):
-    csv_file_path = os.path.join(tempfile.gettempdir(), 'slack_users.csv')
-    with open(csv_file_path, 'w') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
-        for line in buffer:
-            writer.writerow(line)
-        write_to_s3(csv_file_path)
-    csv_file.close()
+def lookup_record(index, guid):
+    response = table_userprocessing.get_item(
+        Key={
+            'uuid': guid,
+            'index': index
+        }
+    )
 
-    return
+    email = response['Item']['email']
 
-
-def write_to_s3(file_path):
-
-    s3.Bucket(s3_bucket).upload_file(file_path, "user_report/{:%Y-%m-%d-%H-%M-%S}.csv".format(datetime.datetime.now()))
-
-    return
+    return email
 
 
-def slack_active_users():
-
-    url = 'https://slack.com/api/users.list'
-    params = {'limit': 200,
-              'token': slack_token}
-
-    response = requests.request("GET", url, params=params)
-    response_data = json.loads(response.content)
-
-    users = list()
-
-    while response_data['response_metadata'].get('next_cursor'):
-        for user in response_data['members']:
-            try:
-                if user['deleted'] is False and \
-                        user['is_bot'] is False and \
-                        user['is_restricted'] is False and \
-                        user['is_ultra_restricted'] is False:
-                    users.append(user['profile']['email'])
-            except KeyError as e:
-                print("ERROR is:", e)
-                print("KeyError generated from:", user)
-
-        next_cursor = response_data['response_metadata']['next_cursor']
-        params = {'limit': 500,
-                  'cursor': next_cursor,
-                  'token': slack_token}
-        response = requests.request("GET", url, params=params)
-        response_data = json.loads(response.content)
-
-    print("length of users is", len(users))
-
-    return users
+def update_record(index, guid, department, division):
+    response = table_userprocessing.update_item(
+        Key={
+            'uuid': guid,
+            'index': index
+        },
+        UpdateExpression='SET #department = :val1, '
+                         '#division = :val2',
+        ExpressionAttributeNames={'#department': 'department',
+                                  '#division': 'division'},
+        ExpressionAttributeValues={':val1': department,
+                                   ':val2': division}
+    )
 
 
 def azure_auth(azure_tenant_id, azure_client_id, azure_client_secret):
@@ -134,7 +102,7 @@ def azure_auth(azure_tenant_id, azure_client_id, azure_client_secret):
         raise Exception({"code": "5000", "message": "ERROR: Unable to retrieve Azure Auth Token"})
 
 
-def azuread_users(user_email, access_token):
+def azuread_users(user_email, access_token, guid, index):
     headers = {'Authorization': 'Bearer ' + access_token}
     querystring = {'$select': 'department,displayName,userPrincipalName'}
     url = "https://graph.microsoft.com/v1.0/users/" + user_email
@@ -152,18 +120,13 @@ def azuread_users(user_email, access_token):
         response_data = json.loads(response.content)
 
         if response.status_code == 200:
-            return {'status': 'OK',
-                    'email': response_data['userPrincipalName'],
-                    'department': response_data['department'],
-                    'division': re.search('^([\w]+)', response_data['department']).group()
-                    }
+            update_record(index, guid, response_data['department'],
+                          re.search('^([\w]+)', response_data['department']).group())
+            return
     elif response.status_code == 200:
-
-        return {'status': 'OK',
-                'email': response_data['userPrincipalName'],
-                'department': response_data['department'],
-                'division': re.search('^([\w]+)', response_data['department']).group()
-                }
+        update_record(index, guid, response_data['department'],
+                      re.search('^([\w]+)', response_data['department']).group())
+        return
     elif response.status_code == 404:
         return {'status': 'NOT_FOUND'}
     else:
