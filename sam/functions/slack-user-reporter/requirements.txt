@@ -1,2 +1,2 @@
 requests
-slackclient
+aws-xray-sdk

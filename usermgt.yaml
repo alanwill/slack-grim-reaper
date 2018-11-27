@@ -48,6 +48,9 @@ Resources:
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+                - S3CrudPolicy:
+                    BucketName: !Ref s3Bucket
+
 #            Events:
 #                processor:
 #                    Type: Schedule
