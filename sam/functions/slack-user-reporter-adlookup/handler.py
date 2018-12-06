@@ -2,14 +2,12 @@
 
 import logging
 import boto3
+from boto3.dynamodb.conditions import Key
 import os
 import sys
 import json
-import csv
-import tempfile
-import datetime
 import re
-import uuid
+import concurrent.futures
 
 # Path to modules needed to package local lambda function for upload
 currentdir = os.path.dirname(os.path.realpath(__file__))
@@ -42,36 +40,33 @@ table_userprocessing = dynamodb.Table(os.environ['USER_PROCESSING_TABLE'])
 def handler(event, context):
     log.debug("Received event {}".format(json.dumps(event)))
 
-    index = event['iterator']['index']
-    guid = event['iterator']['guid']
-    access_token = azure_auth(azure_tenant_id, azure_client_id, azure_client_secret)
+    user_list = lookup_users(event['guid'])
+    access_token = azure_auth()
 
-    azuread_users(user_email=lookup_record(index, guid),
-                  access_token=access_token,
-                  guid=guid,
-                  index=index)
+    num_workers = 1000
 
-    return
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {executor.submit(azuread_users, user, access_token, event['guid']) for user in user_list}
+        concurrent.futures.wait(futures)
 
 
-def lookup_record(index, guid):
-    response = table_userprocessing.get_item(
-        Key={
-            'uuid': guid,
-            'index': index
-        }
+def lookup_users(guid):
+    user_list = list()
+    response = table_userprocessing.query(
+        KeyConditionExpression=Key('uuid').eq(guid)
     )
 
-    email = response['Item']['email']
+    for user in response['Items']:
+        user_list.append(user['email'])
 
-    return email
+    return user_list
 
 
-def update_record(index, guid, department, division):
+def update_record(email, guid, department, division):
     response = table_userprocessing.update_item(
         Key={
             'uuid': guid,
-            'index': index
+            'email': email
         },
         UpdateExpression='SET #department = :val1, '
                          '#division = :val2',
@@ -82,7 +77,7 @@ def update_record(index, guid, department, division):
     )
 
 
-def azure_auth(azure_tenant_id, azure_client_id, azure_client_secret):
+def azure_auth():
     url = "https://login.microsoft.com/" + azure_tenant_id + "/oauth2/v2.0/token"
 
     payload = {'client_id': azure_client_id,
@@ -102,7 +97,7 @@ def azure_auth(azure_tenant_id, azure_client_id, azure_client_secret):
         raise Exception({"code": "5000", "message": "ERROR: Unable to retrieve Azure Auth Token"})
 
 
-def azuread_users(user_email, access_token, guid, index):
+def azuread_users(user_email, access_token, guid):
     headers = {'Authorization': 'Bearer ' + access_token}
     querystring = {'$select': 'department,displayName,userPrincipalName'}
     url = "https://graph.microsoft.com/v1.0/users/" + user_email
@@ -111,7 +106,7 @@ def azuread_users(user_email, access_token, guid, index):
     response_data = json.loads(response.content)
 
     if response.status_code == 401 and response_data['error']['code'] == 'InvalidAuthenticationToken':
-        access_token = azure_auth(azure_tenant_id, azure_client_id, azure_client_secret)
+        access_token = azure_auth()
         headers = {'Authorization': 'Bearer ' + access_token}
         querystring = {'$select': 'department,displayName,userPrincipalName'}
         url = "https://graph.microsoft.com/v1.0/users/" + user_email
@@ -120,11 +115,11 @@ def azuread_users(user_email, access_token, guid, index):
         response_data = json.loads(response.content)
 
         if response.status_code == 200:
-            update_record(index, guid, response_data['department'],
+            update_record(response_data['userPrincipalName'], guid, response_data['department'],
                           re.search('^([\w]+)', response_data['department']).group())
             return
     elif response.status_code == 200:
-        update_record(index, guid, response_data['department'],
+        update_record(response_data['userPrincipalName'], guid, response_data['department'],
                       re.search('^([\w]+)', response_data['department']).group())
         return
     elif response.status_code == 404:

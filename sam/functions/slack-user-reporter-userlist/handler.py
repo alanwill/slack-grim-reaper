@@ -58,13 +58,11 @@ def handler(event, context):
     # print("length of user_list is", len(user_list))
     # convert_to_csv(user_list)
 
-    return {'iterator':
-            {
-                    'count': len(slack_users),
-                    'index': 0,
-                    'step': 1,
-                    'guid': guid
-            }}
+    return {
+                'count': len(slack_users),
+                'index': 0,
+                'guid': guid
+            }
 
 
 def convert_to_csv(buffer):

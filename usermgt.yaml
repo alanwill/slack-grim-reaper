@@ -25,6 +25,9 @@ Parameters:
     azureClientSecret:
         Type: String
         Description: Azure Client Secret
+    layerBucket:
+        Type: String
+        Description: S3 bucket name containing Lambda layers
 
 Globals:
     Function:
@@ -37,6 +40,18 @@ Resources:
 ###
 # Lambda functions
 ###
+    layerMain:
+        Type: AWS::Serverless::LayerVersion
+        Properties:
+            LayerName: Grim-Reaper-Main
+            Description: Main Python libraries for the Grim Reaper app
+            ContentUri:
+                Bucket: !Ref layerBucket
+                Key: grim-reaper_layer.zip
+            CompatibleRuntimes:
+                - python3.6
+            RetentionPolicy: Retain
+
     functionUserList:
         Type: AWS::Serverless::Function
         Properties:
@@ -50,6 +65,8 @@ Resources:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
                 - DynamoDBCrudPolicy:
                     TableName: !Ref dynamodbTableUserProcessing
+            Layers:
+                - !Ref layerMain
             Environment:
                 Variables:
                     SLACK_TOKEN: !Ref slackToken
@@ -62,12 +79,14 @@ Resources:
             Description: Looks up each Slack user against Azure AD
             CodeUri: ./sam/functions/slack-user-reporter-adlookup
             Timeout: 900
-            MemorySize: 1024
+            MemorySize: 1536
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
                 - DynamoDBCrudPolicy:
                     TableName: !Ref dynamodbTableUserProcessing
+            Layers:
+                - !Ref layerMain
             Environment:
                 Variables:
                     AZURE_TENANT_ID: !Ref azureTenantId
@@ -88,16 +107,11 @@ Resources:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
                 - DynamoDBCrudPolicy:
                     TableName: !Ref dynamodbTableUserProcessing
+            Layers:
+                - !Ref layerMain
             Environment:
                 Variables:
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
-
-    functionIterator:
-        Type: AWS::Serverless::Function
-        Properties:
-            FunctionName: !Join [ "-", [ "slack-user-reporter-iterator", !Ref stage ] ]
-            Description: Generates iterator to loop through Slack user list
-            CodeUri: ./sam/functions/slack-user-reporter-iterator
 
     s3Bucket:
         Type: AWS::S3::Bucket
@@ -115,19 +129,16 @@ Resources:
                     AttributeName: uuid
                     AttributeType: "S"
                 -
-                    AttributeName: index
-                    AttributeType: "N"
+                    AttributeName: email
+                    AttributeType: "S"
             KeySchema:
                 -
                     AttributeName: uuid
                     KeyType: HASH
                 -
-                    AttributeName: index
+                    AttributeName: email
                     KeyType: RANGE
-            ProvisionedThroughput:
-                ReadCapacityUnits: '1'
-                WriteCapacityUnits: '10'
-            TableName: !Join [ "-", [ "slack-user-reporter-userprocessing", !Ref stage ] ]
+            BillingMode: PAY_PER_REQUEST
 
 ###
 # State Machine
@@ -173,32 +184,14 @@ Resources:
                                     "Comment": "Looks up Slack users and determines count",
                                     "Resource": "${functionUserListArn}",
                                     "ResultPath": "$",
-                                    "Next": "Iterator"
-                                },
-                                "Iterator": {
-                                    "Type": "Task",
-                                    "Comment": "Takes count of Slack users and sets up loop iterator",
-                                    "Resource": "${functionIteratorArn}",
-                                    "ResultPath": "$.iterator",
-                                    "Next": "IsCountReached"
-                                },
-                                "IsCountReached": {
-                                    "Type": "Choice",
-                                    "Choices": [
-                                        {
-                                            "Variable": "$.iterator.continue",
-                                            "BooleanEquals": true,
-                                            "Next": "AdLookup"
-                                        }
-                                    ],
-                                    "Default": "Finisher"
+                                    "Next": "AdLookup"
                                 },
                                 "AdLookup": {
                                     "Comment": "Your application logic, to run a specific number of times",
                                     "Type": "Task",
                                     "Resource": "${functionAdLookupArn}",
                                     "ResultPath": "$.result",
-                                    "Next": "Iterator"
+                                    "Next": "Finisher"
                                 },
                                 "Finisher": {
                                     "Type": "Task",
@@ -210,8 +203,7 @@ Resources:
                         }
                     - {functionUserListArn: !GetAtt [ functionUserList, Arn ],
                         functionAdLookupArn: !GetAtt [ functionAdLookup, Arn ],
-                        functionFinisherArn: !GetAtt [ functionFinisher, Arn ],
-                        functionIteratorArn: !GetAtt [ functionIterator, Arn ]}
+                        functionFinisherArn: !GetAtt [ functionFinisher, Arn ]}
             RoleArn: !GetAtt [ iamRoleStateMachineUserReporter, Arn ]
 
 
