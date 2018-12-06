@@ -158,6 +158,7 @@ fabric.properties
 # Editor-based Rest Client
 .idea/httpRequests
 
-# AWS SAM Vendored
-vendored/
+# AWS SAM 
+sam/layers/build
+sam/layers/*.zip
 sam-output.yaml
