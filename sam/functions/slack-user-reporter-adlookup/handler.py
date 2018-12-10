@@ -48,7 +48,9 @@ def handler(event, context):
         futures = {executor.submit(azuread_users, user, access_token, event['guid']) for user in user_list}
         concurrent.futures.wait(futures)
 
-    return
+    return {
+                'guid': event['guid']
+            }
 
 
 def lookup_users(guid):

@@ -63,7 +63,7 @@ def slack_active_users():
                         user['is_bot'] is False and \
                         user['is_restricted'] is False and \
                         user['is_ultra_restricted'] is False:
-                    users.append(user['profile']['email'])
+                    users.append([user['profile']['email'], user['id']])
             except KeyError as e:
                 print("ERROR is:", e)
                 print("KeyError generated from:", user)
@@ -89,7 +89,8 @@ def write_to_dynamodb(users, guid):
         table_userprocessing.put_item(
             Item={
                 "uuid": guid,
-                "email": email.lower(),
+                "email": email[0].lower(),
+                "slack_id": email[1]
             }
         )
 
