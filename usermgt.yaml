@@ -105,13 +105,16 @@ Resources:
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-                - DynamoDBCrudPolicy:
+                - DynamoDBReadPolicy:
                     TableName: !Ref dynamodbTableUserProcessing
+                - S3CrudPolicy:
+                    BucketName: !Ref s3Bucket
             Layers:
                 - !Ref layerMain
             Environment:
                 Variables:
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
+                    S3_BUCKET_NAME: !Ref s3Bucket
 
     s3Bucket:
         Type: AWS::S3::Bucket
@@ -131,6 +134,9 @@ Resources:
                 -
                     AttributeName: email
                     AttributeType: "S"
+                -
+                    AttributeName: status_code
+                    AttributeType: "N"
             KeySchema:
                 -
                     AttributeName: uuid
@@ -139,6 +145,16 @@ Resources:
                     AttributeName: email
                     KeyType: RANGE
             BillingMode: PAY_PER_REQUEST
+            GlobalSecondaryIndexes:
+                -
+                    IndexName: gsiStatusCode
+                    KeySchema:
+                        -
+                            AttributeName: status_code
+                            KeyType: HASH
+                    Projection:
+                        ProjectionType: ALL
+
 
 ###
 # State Machine
@@ -187,13 +203,14 @@ Resources:
                                     "Next": "AdLookup"
                                 },
                                 "AdLookup": {
-                                    "Comment": "Your application logic, to run a specific number of times",
+                                    "Comment": "Query each user against Azure AD",
                                     "Type": "Task",
                                     "Resource": "${functionAdLookupArn}",
-                                    "ResultPath": "$.result",
+                                    "ResultPath": "$",
                                     "Next": "Finisher"
                                 },
                                 "Finisher": {
+                                    "Comment": "Create CSV and send results to S3",
                                     "Type": "Task",
                                     "Resource": "${functionFinisherArn}",
                                     "End": true
