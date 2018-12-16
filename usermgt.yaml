@@ -45,7 +45,7 @@ Resources:
     nestedStackLambda:
         Type: AWS::Serverless::Application
         Properties:
-            Location: sam/cfn/lambda.yaml
+            Location: sam/cfn/cfn-lambda-functions.yaml
             Parameters:
                 stage: !Ref stage
                 slackToken: !Ref slackToken
@@ -54,48 +54,22 @@ Resources:
                 azureClientSecret: !Ref azureClientSecret
                 layerBucket: !Ref layerBucket
                 s3Bucket: !Ref s3Bucket
-                dynamodbTableUserProcessing: !Ref dynamodbTableUserProcessing
+                dynamodbTableUserProcessing: !GetAtt nestedStackDynamodb.Outputs.dynamodbTableUserProcessing
 
+    nestedStackApigateway:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-api-gateways.yaml
+            Parameters:
+                stage: !Ref stage
+
+    nestedStackDynamodb:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-dynamodb-tables.yaml
 
     s3Bucket:
         Type: AWS::S3::Bucket
-
-
-###
-# DynamoDB Tables
-###
-
-    dynamodbTableUserProcessing:
-        Type: AWS::DynamoDB::Table
-        Properties:
-            AttributeDefinitions:
-                -
-                    AttributeName: uuid
-                    AttributeType: "S"
-                -
-                    AttributeName: email
-                    AttributeType: "S"
-                -
-                    AttributeName: status_code
-                    AttributeType: "N"
-            KeySchema:
-                -
-                    AttributeName: uuid
-                    KeyType: HASH
-                -
-                    AttributeName: email
-                    KeyType: RANGE
-            BillingMode: PAY_PER_REQUEST
-            GlobalSecondaryIndexes:
-                -
-                    IndexName: gsiStatusCode
-                    KeySchema:
-                        -
-                            AttributeName: status_code
-                            KeyType: HASH
-                    Projection:
-                        ProjectionType: ALL
-
 
 ###
 # State Machine

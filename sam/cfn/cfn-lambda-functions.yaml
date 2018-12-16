@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
-Description: Slack User Management
+Description: Lambda function resources
 Parameters:
     stage:
         Type: String
@@ -115,7 +115,6 @@ Resources:
                 Variables:
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
                     S3_BUCKET_NAME: !Ref s3Bucket
-
 
 Outputs:
     functionUserListArn: 

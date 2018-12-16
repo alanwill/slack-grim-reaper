@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: DynamoDB table resources
+
+Resources:
+###
+# DynamoDB Tables
+###
+
+    tableUserProcessing:
+        Type: AWS::DynamoDB::Table
+        Properties:
+            AttributeDefinitions:
+                -
+                    AttributeName: uuid
+                    AttributeType: "S"
+                -
+                    AttributeName: email
+                    AttributeType: "S"
+                -
+                    AttributeName: status_code
+                    AttributeType: "N"
+            KeySchema:
+                -
+                    AttributeName: uuid
+                    KeyType: HASH
+                -
+                    AttributeName: email
+                    KeyType: RANGE
+            BillingMode: PAY_PER_REQUEST
+            GlobalSecondaryIndexes:
+                -
+                    IndexName: gsiStatusCode
+                    KeySchema:
+                        -
+                            AttributeName: status_code
+                            KeyType: HASH
+                    Projection:
+                        ProjectionType: ALL
+
+Outputs:
+    dynamodbTableUserProcessing: 
+        Value: !Ref tableUserProcessing
+        Description: User Processing DynamoDB table
+

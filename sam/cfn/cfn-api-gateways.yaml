@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: API Gateway resources
+Parameters:
+    stage:
+        Type: String
+        AllowedValues:
+          - alpha
+          - beta
+          - prod
+        Description: Enter alpha, beta or prod to designate the deployment stage/environment
+
+
+Globals:
+    Function:
+        Runtime: python3.6
+        Handler: handler.handler
+        MemorySize: 128
+        Timeout: 30
+
+Resources:
+###
+# Api Gateway
+###
+    apigatewaySlack:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: !Ref stage
+            DefinitionUri: ../../sam/api/slack-swagger.yaml
+
+
