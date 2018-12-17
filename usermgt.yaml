@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: Slack User Management
+
 Parameters:
     stage:
         Type: String
@@ -29,198 +30,41 @@ Parameters:
         Type: String
         Description: S3 bucket name containing Lambda layers
 
-Globals:
-    Function:
-        Runtime: python3.6
-        Handler: handler.handler
-        MemorySize: 128
-        Timeout: 30
-
 Resources:
-###
-# Lambda functions
-###
-    layerMain:
-        Type: AWS::Serverless::LayerVersion
+    nestedStackLambda:
+        Type: AWS::Serverless::Application
         Properties:
-            LayerName: Grim-Reaper-Main
-            Description: Main Python libraries for the Grim Reaper app
-            ContentUri:
-                Bucket: !Ref layerBucket
-                Key: grim-reaper_layer.zip
-            CompatibleRuntimes:
-                - python3.6
-            RetentionPolicy: Retain
+            Location: sam/cfn/cfn-lambda-functions.yaml
+            Parameters:
+                stage: !Ref stage
+                slackToken: !Ref slackToken
+                azureTenantId: !Ref azureTenantId
+                azureClientId: !Ref azureClientId
+                azureClientSecret: !Ref azureClientSecret
+                layerBucket: !Ref layerBucket
+                s3Bucket: !Ref s3Bucket
+                dynamodbTableUserProcessing: !GetAtt nestedStackDynamodb.Outputs.dynamodbTableUserProcessing
 
-    functionUserList:
-        Type: AWS::Serverless::Function
+    nestedStackApigateway:
+        Type: AWS::Serverless::Application
         Properties:
-            FunctionName: !Join [ "-", [ "slack-user-reporter-userlist", !Ref stage ] ]
-            Description: Generates a list of all slack users with non-disabled accounts
-            CodeUri: ./sam/functions/slack-user-reporter-userlist
-            Timeout: 900
-            MemorySize: 1024
-            Tracing: Active
-            Policies:
-                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-                - DynamoDBCrudPolicy:
-                    TableName: !Ref dynamodbTableUserProcessing
-            Layers:
-                - !Ref layerMain
-            Environment:
-                Variables:
-                    SLACK_TOKEN: !Ref slackToken
-                    USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
+            Location: sam/cfn/cfn-api-gateways.yaml
+            Parameters:
+                stage: !Ref stage
 
-    functionAdLookup:
-        Type: AWS::Serverless::Function
+    nestedStackDynamodb:
+        Type: AWS::Serverless::Application
         Properties:
-            FunctionName: !Join [ "-", [ "slack-user-reporter-adlookup", !Ref stage ] ]
-            Description: Looks up each Slack user against Azure AD
-            CodeUri: ./sam/functions/slack-user-reporter-adlookup
-            Timeout: 900
-            MemorySize: 1536
-            Tracing: Active
-            Policies:
-                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-                - DynamoDBCrudPolicy:
-                    TableName: !Ref dynamodbTableUserProcessing
-            Layers:
-                - !Ref layerMain
-            Environment:
-                Variables:
-                    AZURE_TENANT_ID: !Ref azureTenantId
-                    AZURE_CLIENT_ID: !Ref azureClientId
-                    AZURE_CLIENT_SECRET: !Ref azureClientSecret
-                    USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
+            Location: sam/cfn/cfn-dynamodb-tables.yaml
 
-    functionFinisher:
-        Type: AWS::Serverless::Function
+    nestedStackStepfunctions:
+        Type: AWS::Serverless::Application
         Properties:
-            FunctionName: !Join [ "-", [ "slack-user-reporter-finisher", !Ref stage ] ]
-            Description: Creates CSV and uploads to S3
-            CodeUri: ./sam/functions/slack-user-reporter-finisher
-            Timeout: 120
-            MemorySize: 128
-            Tracing: Active
-            Policies:
-                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-                - DynamoDBReadPolicy:
-                    TableName: !Ref dynamodbTableUserProcessing
-                - S3CrudPolicy:
-                    BucketName: !Ref s3Bucket
-            Layers:
-                - !Ref layerMain
-            Environment:
-                Variables:
-                    USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
-                    S3_BUCKET_NAME: !Ref s3Bucket
+            Location: sam/cfn/cfn-stepfunctions-stepmachines.yaml
+            Parameters:
+                functionUserListArn: !GetAtt nestedStackLambda.Outputs.functionUserListArn
+                functionAdLookupArn: !GetAtt nestedStackLambda.Outputs.functionAdLookupArn
+                functionFinisherArn: !GetAtt nestedStackLambda.Outputs.functionFinisherArn
 
     s3Bucket:
         Type: AWS::S3::Bucket
-
-
-###
-# DynamoDB Tables
-###
-
-    dynamodbTableUserProcessing:
-        Type: AWS::DynamoDB::Table
-        Properties:
-            AttributeDefinitions:
-                -
-                    AttributeName: uuid
-                    AttributeType: "S"
-                -
-                    AttributeName: email
-                    AttributeType: "S"
-                -
-                    AttributeName: status_code
-                    AttributeType: "N"
-            KeySchema:
-                -
-                    AttributeName: uuid
-                    KeyType: HASH
-                -
-                    AttributeName: email
-                    KeyType: RANGE
-            BillingMode: PAY_PER_REQUEST
-            GlobalSecondaryIndexes:
-                -
-                    IndexName: gsiStatusCode
-                    KeySchema:
-                        -
-                            AttributeName: status_code
-                            KeyType: HASH
-                    Projection:
-                        ProjectionType: ALL
-
-
-###
-# State Machine
-###
-
-    iamRoleStateMachineUserReporter:
-        Type: AWS::IAM::Role
-        Properties:
-            AssumeRolePolicyDocument:
-                Version: 2012-10-17
-                Statement:
-                    -
-                        Effect: Allow
-                        Principal:
-                            Service: !Sub states.amazonaws.com
-                        Action: "sts:AssumeRole"
-            Path: "/"
-            Policies:
-                -
-                    PolicyName: StatesExecutionPolicy
-                    PolicyDocument:
-                        Version: "2012-10-17"
-                        Statement:
-                            -
-                                Effect: "Allow"
-                                Action: "lambda:InvokeFunction"
-                                Resource: "*"
-
-    stateMachineUserReporter:
-        Type: AWS::StepFunctions::StateMachine
-        Properties:
-            StateMachineName: !Join [ "-", [ "slack-user-reporter", !Ref stage ] ]
-            DefinitionString:
-                !Sub
-                    - |-
-                        {
-                            "Comment": "Slack User Reporter",
-                            "StartAt": "DetermineSlackUserCount",
-                            "States": {
-                                
-                                "DetermineSlackUserCount": {
-                                    "Type": "Task",
-                                    "Comment": "Looks up Slack users and determines count",
-                                    "Resource": "${functionUserListArn}",
-                                    "ResultPath": "$",
-                                    "Next": "AdLookup"
-                                },
-                                "AdLookup": {
-                                    "Comment": "Query each user against Azure AD",
-                                    "Type": "Task",
-                                    "Resource": "${functionAdLookupArn}",
-                                    "ResultPath": "$",
-                                    "Next": "Finisher"
-                                },
-                                "Finisher": {
-                                    "Comment": "Create CSV and send results to S3",
-                                    "Type": "Task",
-                                    "Resource": "${functionFinisherArn}",
-                                    "End": true
-                                
-                                }
-                            }
-                        }
-                    - {functionUserListArn: !GetAtt [ functionUserList, Arn ],
-                        functionAdLookupArn: !GetAtt [ functionAdLookup, Arn ],
-                        functionFinisherArn: !GetAtt [ functionFinisher, Arn ]}
-            RoleArn: !GetAtt [ iamRoleStateMachineUserReporter, Arn ]
-
-
