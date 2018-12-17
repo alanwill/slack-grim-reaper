@@ -1,29 +1,20 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: Lambda function resources
+
 Parameters:
     stage:
         Type: String
-        AllowedValues:
-          - alpha
-          - beta
-          - prod
-        Description: Enter alpha, beta or prod to designate the deployment stage/environment
     slackToken:
         Type: String
-        Description: Slack Token
     azureTenantId:
         Type: String
-        Description: Azure Tenant Id
     azureClientId:
         Type: String
-        Description: Azure Client Id
     azureClientSecret:
         Type: String
-        Description: Azure Client Secret
     layerBucket:
         Type: String
-        Description: S3 bucket name containing Lambda layers
     dynamodbTableUserProcessing:
         Type: String
     s3Bucket:
@@ -37,9 +28,6 @@ Globals:
         Timeout: 30
 
 Resources:
-###
-# Lambda functions
-###
     layerMain:
         Type: AWS::Serverless::LayerVersion
         Properties:

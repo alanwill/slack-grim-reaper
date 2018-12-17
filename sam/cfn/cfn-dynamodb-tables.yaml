@@ -3,10 +3,6 @@ Transform: 'AWS::Serverless-2016-10-31'
 Description: DynamoDB table resources
 
 Resources:
-###
-# DynamoDB Tables
-###
-
     tableUserProcessing:
         Type: AWS::DynamoDB::Table
         Properties:

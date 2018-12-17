@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: Slack User Management
+
 Parameters:
     stage:
         Type: String
@@ -29,19 +30,7 @@ Parameters:
         Type: String
         Description: S3 bucket name containing Lambda layers
 
-Globals:
-    Function:
-        Runtime: python3.6
-        Handler: handler.handler
-        MemorySize: 128
-        Timeout: 30
-
 Resources:
-
-###
-# Nested Stacks
-###
-
     nestedStackLambda:
         Type: AWS::Serverless::Application
         Properties:
@@ -68,74 +57,14 @@ Resources:
         Properties:
             Location: sam/cfn/cfn-dynamodb-tables.yaml
 
+    nestedStackStepfunctions:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-stepfunctions-stepmachines.yaml
+            Parameters:
+                functionUserListArn: !GetAtt nestedStackLambda.Outputs.functionUserListArn
+                functionAdLookupArn: !GetAtt nestedStackLambda.Outputs.functionAdLookupArn
+                functionFinisherArn: !GetAtt nestedStackLambda.Outputs.functionFinisherArn
+
     s3Bucket:
         Type: AWS::S3::Bucket
-
-###
-# State Machine
-###
-
-    iamRoleStateMachineUserReporter:
-        Type: AWS::IAM::Role
-        Properties:
-            AssumeRolePolicyDocument:
-                Version: 2012-10-17
-                Statement:
-                    -
-                        Effect: Allow
-                        Principal:
-                            Service: !Sub states.amazonaws.com
-                        Action: "sts:AssumeRole"
-            Path: "/"
-            Policies:
-                -
-                    PolicyName: StatesExecutionPolicy
-                    PolicyDocument:
-                        Version: "2012-10-17"
-                        Statement:
-                            -
-                                Effect: "Allow"
-                                Action: "lambda:InvokeFunction"
-                                Resource: "*"
-
-    stateMachineUserReporter:
-        Type: AWS::StepFunctions::StateMachine
-        Properties:
-            StateMachineName: !Join [ "-", [ "slack-user-reporter", !Ref stage ] ]
-            DefinitionString:
-                !Sub
-                    - |-
-                        {
-                            "Comment": "Slack User Reporter",
-                            "StartAt": "DetermineSlackUserCount",
-                            "States": {
-                                
-                                "DetermineSlackUserCount": {
-                                    "Type": "Task",
-                                    "Comment": "Looks up Slack users and determines count",
-                                    "Resource": "${functionUserListArn}",
-                                    "ResultPath": "$",
-                                    "Next": "AdLookup"
-                                },
-                                "AdLookup": {
-                                    "Comment": "Query each user against Azure AD",
-                                    "Type": "Task",
-                                    "Resource": "${functionAdLookupArn}",
-                                    "ResultPath": "$",
-                                    "Next": "Finisher"
-                                },
-                                "Finisher": {
-                                    "Comment": "Create CSV and send results to S3",
-                                    "Type": "Task",
-                                    "Resource": "${functionFinisherArn}",
-                                    "End": true
-                                
-                                }
-                            }
-                        }
-                    - {functionUserListArn: !GetAtt nestedStackLambda.Outputs.functionUserListArn,
-                        functionAdLookupArn: !GetAtt nestedStackLambda.Outputs.functionAdLookupArn,
-                        functionFinisherArn: !GetAtt nestedStackLambda.Outputs.functionFinisherArn}
-            RoleArn: !GetAtt [ iamRoleStateMachineUserReporter, Arn ]
-
-

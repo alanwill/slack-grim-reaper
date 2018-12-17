@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Step Function resources
+
+Parameters:
+    functionUserListArn:
+        Type: String
+    functionAdLookupArn:
+        Type: String
+    functionFinisherArn:
+        Type: String
+
+Resources:
+    iamRoleStateMachineUserReporter:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: 2012-10-17
+                Statement:
+                    -
+                        Effect: Allow
+                        Principal:
+                            Service: !Sub states.amazonaws.com
+                        Action: "sts:AssumeRole"
+            Path: "/"
+            Policies:
+                -
+                    PolicyName: StatesExecutionPolicy
+                    PolicyDocument:
+                        Version: "2012-10-17"
+                        Statement:
+                            -
+                                Effect: "Allow"
+                                Action: "lambda:InvokeFunction"
+                                Resource: "*"
+
+    stateMachineUserReporter:
+        Type: AWS::StepFunctions::StateMachine
+        Properties:
+            DefinitionString:
+                !Sub
+                    - |-
+                        {
+                            "Comment": "Slack User Reporter",
+                            "StartAt": "DetermineSlackUserCount",
+                            "States": {
+                                
+                                "DetermineSlackUserCount": {
+                                    "Type": "Task",
+                                    "Comment": "Looks up Slack users and determines count",
+                                    "Resource": "${lambdaFunctionUserListArn}",
+                                    "ResultPath": "$",
+                                    "Next": "AdLookup"
+                                },
+                                "AdLookup": {
+                                    "Comment": "Query each user against Azure AD",
+                                    "Type": "Task",
+                                    "Resource": "${lambdaFunctionAdLookupArn}",
+                                    "ResultPath": "$",
+                                    "Next": "Finisher"
+                                },
+                                "Finisher": {
+                                    "Comment": "Create CSV and send results to S3",
+                                    "Type": "Task",
+                                    "Resource": "${lambdaFunctionFinisherArn}",
+                                    "End": true
+                                
+                                }
+                            }
+                        }
+                    - {lambdaFunctionUserListArn: !Ref functionUserListArn,
+                        lambdaFunctionAdLookupArn: !Ref functionAdLookupArn,
+                        lambdaFunctionFinisherArn: !Ref functionFinisherArn}
+            RoleArn: !GetAtt [ iamRoleStateMachineUserReporter, Arn ]
+
+
+
+
