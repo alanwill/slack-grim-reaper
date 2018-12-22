@@ -17,6 +17,12 @@ Parameters:
     slackToken:
         Type: String
         Description: Slack Token
+    slackSecret:
+        Type: String
+        Description: Slack Secret
+    slackWebhook:
+        Type: String
+        Description: Slack webhook
     azureTenantId:
         Type: String
         Description: Azure Tenant Id
@@ -38,6 +44,8 @@ Resources:
             Parameters:
                 stage: !Ref stage
                 slackToken: !Ref slackToken
+                slackSecret: !Ref slackSecret
+                slackWebhook: !Ref slackWebhook
                 azureTenantId: !Ref azureTenantId
                 azureClientId: !Ref azureClientId
                 azureClientSecret: !Ref azureClientSecret

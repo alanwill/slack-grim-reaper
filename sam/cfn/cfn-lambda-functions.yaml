@@ -7,6 +7,10 @@ Parameters:
         Type: String
     slackToken:
         Type: String
+    slackSecret:
+        Type: String
+    slackWebhook:
+        Type: String
     azureTenantId:
         Type: String
     azureClientId:
@@ -103,6 +107,7 @@ Resources:
                 Variables:
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
                     S3_BUCKET_NAME: !Ref s3Bucket
+                    SLACK_WEBHOOK: !Ref slackWebhook
 
     functionMessageController:
         Type: AWS::Serverless::Function
@@ -120,6 +125,7 @@ Resources:
             Environment:
                 Variables:
                     S3_BUCKET_NAME: !Ref s3Bucket
+                    SLACK_SECRET: !Ref slackSecret
 
 Outputs:
     functionUserListArn: 
