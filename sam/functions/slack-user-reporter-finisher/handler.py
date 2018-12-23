@@ -41,8 +41,9 @@ s3_obj_key = "user_report/{:%Y-%m-%d-%H-%M-%S}.csv".format(datetime.datetime.now
 def handler(event, context):
     log.debug("Received event {}".format(json.dumps(event)))
 
-    convert_to_csv(generate_list(event['guid']))
-    post_to_slack(generate_url(s3_obj_key))
+    convert_to_csv(buffer=generate_list(event['guid']))
+
+    post_to_slack(url=generate_url(s3_obj_key), user_list=deactive_user_list(event['guid']))
 
     return
 
@@ -68,8 +69,6 @@ def convert_to_csv(buffer):
         for line in buffer:
             writer.writerow(line)
 
-        generate_url(s3_obj_key)
-
     with open(csv_file_path, 'rb') as csv_file:
         s3.upload_fileobj(csv_file, s3_bucket, s3_obj_key)
 
@@ -91,24 +90,44 @@ def generate_url(s3_key):
     return url
 
 
-def post_to_slack(url):
+def post_to_slack(url, user_list):
 
     slack_message = {
-        "text": "This is your daily user management report.",
+        "text": "Your daily Slack actions.",
         "attachments": [
             {
-                "pretext": "The user report is here: " + str(url),
-                "text": "Should I?",
+                "title": "Today's User Breakdown Report",
+                "title_link": str(url),
+                "fallback": "Today's User Report URL is " + str(url),
+                "color": "good",
+                "attachment_type": "default"
+            },
+            {
+                "pretext": "Should I deactivate the following users?",
+                "text": ", ".join(user_list),
                 "callback_id": "deactivate",
-                "color": "#3AA3E3",
+                "color": "warning",
+                "fields": [
+                    {
+                        "title": "# of Users",
+                        "value": str(len(user_list)),
+                        "short": True
+                    }
+                ],
                 "attachment_type": "default",
                 "actions": [
                     {
-                        "name": "deactivate",
-                        "text": ":no_entry_sign: Deactivate",
+                        "name": "yes",
+                        "text": ":white_check_mark: Yes",
                         "type": "button",
-                        "value": "deactivate"
+                        "value": "yes"
                     },
+                    {
+                        "name": "no",
+                        "text": ":no_entry_sign: No",
+                        "type": "button",
+                        "value": "no"
+                    }
                 ]
             }
         ]
@@ -119,3 +138,17 @@ def post_to_slack(url):
     print(response)
 
     return
+
+
+def deactive_user_list(guid):
+    user_list = list()
+
+    response = table_userprocessing.query(
+        KeyConditionExpression=Key('uuid').eq(guid),
+        FilterExpression=Attr('status_code').ne(200)
+    )
+
+    for user in response['Items']:
+        user_list.append("<@" + user['slack_id'] + ">")
+
+    return user_list
