@@ -59,7 +59,8 @@ Resources:
             Location: sam/cfn/cfn-api-gateways.yaml
             Parameters:
                 stage: !Ref stage
-                functionMessageController: !GetAtt nestedStackLambda.Outputs.functionMessageControllerName
+                functionMessageControllerName: !GetAtt nestedStackLambda.Outputs.functionMessageControllerName
+                functionMessageControllerArn: !GetAtt nestedStackLambda.Outputs.functionMessageControllerArn
 
     nestedStackDynamodb:
         Type: AWS::Serverless::Application
