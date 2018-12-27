@@ -150,7 +150,7 @@ def deactivate_users(callback_id, callback_channel):
 
     response = sns.publish(
         TopicArn=sns_topic_deactivate,
-        Message=str(payload),
+        Message=str({"default": payload, "lambda": payload, "email": payload}),
     )
 
     return
