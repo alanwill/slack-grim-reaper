@@ -9,7 +9,7 @@ Parameters:
         Type: String
     slackSecret:
         Type: String
-    slackWebhook:
+    slackChannel:
         Type: String
     azureTenantId:
         Type: String
@@ -111,7 +111,8 @@ Resources:
                 Variables:
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
                     S3_BUCKET_NAME: !Ref s3Bucket
-                    SLACK_WEBHOOK: !Ref slackWebhook
+                    SLACK_TOKEN: !Ref slackToken
+                    SLACK_CHANNEL: !Ref slackChannel
 
     functionMessageController:
         Type: AWS::Serverless::Function
@@ -167,7 +168,8 @@ Outputs:
         Description: Lambda function functionMessageController Arn
     functionMessageControllerName: 
         Value: !Ref functionMessageController
-        Description: Lambda function functionMessageController Name    functionUserDeprovisionerArn: 
+        Description: Lambda function functionMessageController Name
+    functionUserDeprovisionerArn: 
         Value: !GetAtt functionUserDeprovisioner.Arn
         Description: Lambda function functionUserDeprovisioner Arn
     functionUserDeprovisionerName: 

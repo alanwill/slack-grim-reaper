@@ -34,7 +34,8 @@ dynamodb = boto3.resource('dynamodb')
 # Initialize variables
 s3_bucket = os.environ["S3_BUCKET_NAME"]
 table_userprocessing = dynamodb.Table(os.environ['USER_PROCESSING_TABLE'])
-slack_webhook = os.environ["SLACK_WEBHOOK"]
+slack_token = os.environ["SLACK_TOKEN"]
+slack_channel = os.environ["SLACK_CHANNEL"]
 s3_obj_key = "user_report/{:%Y-%m-%d-%H-%M-%S}.csv".format(datetime.datetime.now())
 
 
@@ -43,7 +44,7 @@ def handler(event, context):
 
     convert_to_csv(buffer=generate_list(event['guid']))
 
-    post_to_slack(url=generate_url(s3_obj_key), user_list=deactive_user_list(event['guid']))
+    post_to_slack(url=generate_url(s3_obj_key), user_list=deactivate_user_list(event['guid']), guid=event['guid'])
 
     return
 
@@ -90,30 +91,37 @@ def generate_url(s3_key):
     return url
 
 
-def post_to_slack(url, user_list):
+def post_to_slack(url, user_list, guid):
 
     slack_message = {
-        "text": "Your daily Slack actions.",
+        "channel": slack_channel,
+        "text": "*Today's Slack Member actions*",
         "attachments": [
             {
-                "title": "Today's User Breakdown Report",
+                "title": "Active Member Breakdown Report",
                 "title_link": str(url),
+                "text": "Click the report above to download a csv of all Slack members broken out by department",
                 "fallback": "Today's User Report URL is " + str(url),
-                "attachment_type": "default"
+                "color": "good"
             },
             {
-                "pretext": "Should I deactivate the following users?",
-                "text": ", ".join(user_list),
-                "callback_id": "deactivate",
-                "color": "warning",
+                "title": "Member Deprovisioning",
+                "text": "The following members no longer exist in the corporate identity system, "
+                        "should I deactivate them?",
+                "callback_id": "deactivate:" + guid,
+                "color": "danger",
                 "fields": [
                     {
-                        "title": "# of Users",
+                        "title": "Names",
+                        "value": ", ".join(user_list),
+                        "short": False
+                    },
+                    {
+                        "title": "Count",
                         "value": str(len(user_list)),
-                        "short": True
+                        "short": False
                     }
                 ],
-                "attachment_type": "default",
                 "actions": [
                     {
                         "name": "yes",
@@ -135,13 +143,15 @@ def post_to_slack(url, user_list):
     }
 
     # Send notification
-    response = requests.post(slack_webhook, data=json.dumps(slack_message))
-    print(response)
+    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slack_token}
+    response = requests.post('https://slack.com/api/chat.postMessage', data=json.dumps(slack_message), headers=headers)
+    # print(response.content)
 
-    return
+    if response.status_code == 200:
+        return
 
 
-def deactive_user_list(guid):
+def deactivate_user_list(guid):
     user_list = list()
 
     response = table_userprocessing.query(

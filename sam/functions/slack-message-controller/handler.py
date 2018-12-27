@@ -73,14 +73,34 @@ def handler(event, context):
                              "id": 3}
                            ]
 
-            slack_response(slack_token, text, channel, ts, attachments)
+            slack_response(text, channel, ts, attachments)
+            return {"statusCode": 200}
+
+        elif payload['actions'][0]['name'] == "yes":
+            print("User clicked YES")
+
+            ts = payload['message_ts']
+            text = payload['original_message']['text']
+            channel = payload['channel']['id']
+            attachments = [
+                            payload['original_message']['attachments'][0],
+                            {k: payload['original_message']['attachments'][1][k] for k in
+                             set(list(payload['original_message']['attachments'][1].keys())) - {'actions'}},
+                            {"text": "*:white_check_mark: <@" + payload['user']['name'] +
+                                     "> approved today's deprovisioning, I'll let you know once it's complete.*",
+                             "id": 3}
+                           ]
+
+            slack_response(text, channel, ts, attachments)
+
+            deactivate_users(callback_id=payload['callback_id'], callback_channel=channel)
             return {"statusCode": 200}
 
     print("No case fit")
     return
 
 
-def slack_response(token, text, channel, ts, attachments):
+def slack_response(text, channel, ts, attachments):
     message = {
         "text": text,
         "channel": channel,
@@ -89,7 +109,7 @@ def slack_response(token, text, channel, ts, attachments):
     }
 
     # print(json.dumps(message))
-    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}
+    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slack_token}
     response = requests.post('https://slack.com/api/chat.update', data=json.dumps(message), headers=headers)
     # print(response.content)
 

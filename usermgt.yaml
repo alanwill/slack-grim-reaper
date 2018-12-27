@@ -20,9 +20,9 @@ Parameters:
     slackSecret:
         Type: String
         Description: Slack Secret
-    slackWebhook:
+    slackChannel:
         Type: String
-        Description: Slack webhook
+        Description: Slack Channel
     azureTenantId:
         Type: String
         Description: Azure Tenant Id
@@ -45,12 +45,14 @@ Resources:
                 stage: !Ref stage
                 slackToken: !Ref slackToken
                 slackSecret: !Ref slackSecret
-                slackWebhook: !Ref slackWebhook
+                slackChannel: !Ref slackChannel
                 azureTenantId: !Ref azureTenantId
                 azureClientId: !Ref azureClientId
                 azureClientSecret: !Ref azureClientSecret
                 layerBucket: !Ref layerBucket
                 s3Bucket: !Ref s3Bucket
+                snsTopicDeactivateArn: !GetAtt nestedStackSns.Outputs.snsTopicDeprovisionusersArn
+                snsTopicDeactivateName: !GetAtt nestedStackSns.Outputs.snsTopicDeprovisionusersName
                 dynamodbTableUserProcessing: !GetAtt nestedStackDynamodb.Outputs.dynamodbTableUserProcessing
 
     nestedStackApigateway:
