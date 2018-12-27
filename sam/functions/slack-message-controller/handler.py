@@ -31,10 +31,12 @@ log.setLevel(logging.DEBUG)
 
 # Initialize AWS services
 secrets = boto3.client('secretsmanager')
+sns = boto3.client('sns')
 
 # Initialize variables
 slack_secret = os.environ["SLACK_SECRET"]
 slack_token = os.environ["SLACK_TOKEN"]
+sns_topic_deactivate = os.environ["SNS_TOPIC_DEACTIVATE"]
 
 
 def handler(event, context):
@@ -120,3 +122,15 @@ def process_body(body):
 
     print(json.dumps(payload))
     return payload
+
+
+def deactivate_users(callback_id, callback_channel):
+    guid = callback_id.split(":")[1]
+    payload = {"guid": guid, "channel": callback_channel}
+
+    response = sns.publish(
+        TopicArn=sns_topic_deactivate,
+        Message=str(payload),
+    )
+
+    return

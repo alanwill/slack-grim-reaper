@@ -23,6 +23,10 @@ Parameters:
         Type: String
     s3Bucket:
         Type: String
+    snsTopicDeactivateArn:
+        Type: String
+    snsTopicDeactivateName:
+        Type: String
 
 Globals:
     Function:
@@ -120,6 +124,8 @@ Resources:
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+                - SNSPublishMessagePolicy:
+                    TopicName: !Ref snsTopicDeactivateName
             Layers:
                 - !Ref layerMain
             Environment:
@@ -127,6 +133,7 @@ Resources:
                     S3_BUCKET_NAME: !Ref s3Bucket
                     SLACK_SECRET: !Ref slackSecret
                     SLACK_TOKEN: !Ref slackToken
+                    SNS_TOPIC_DEACTIVATE: !Ref snsTopicDeactivateArn
 
 Outputs:
     functionUserListArn: 

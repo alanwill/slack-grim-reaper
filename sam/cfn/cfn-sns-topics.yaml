@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: SNS topics resources
+
+Parameters:
+    stage:
+        Type: String
+    functionUserDeprovisionerArn:
+        Type: String
+
+Resources:
+
+    snsTopicDeprovisionusers: 
+        Type: AWS::SNS::Topic
+        Properties: 
+            Subscription:
+                -
+                    Endpoint: !Ref functionUserDeprovisionerArn
+                    Protocol: "lambda"
+
+Outputs:
+    snsTopicDeprovisionusersArn: 
+        Value: !Ref snsTopicDeprovisionusers
+        Description: SNS topic Arn
+    snsTopicDeprovisionusersName: 
+        Value: !GetAtt snsTopicDeprovisionusers.TopicName
+        Description: SNS topic name
