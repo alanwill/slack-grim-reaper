@@ -99,7 +99,6 @@ def post_to_slack(url, user_list):
                 "title": "Today's User Breakdown Report",
                 "title_link": str(url),
                 "fallback": "Today's User Report URL is " + str(url),
-                "color": "good",
                 "attachment_type": "default"
             },
             {
@@ -118,14 +117,16 @@ def post_to_slack(url, user_list):
                 "actions": [
                     {
                         "name": "yes",
-                        "text": ":white_check_mark: Yes",
+                        "text": "Yes",
                         "type": "button",
+                        "style": "danger",
                         "value": "yes"
                     },
                     {
                         "name": "no",
-                        "text": ":no_entry_sign: No",
+                        "text": "No",
                         "type": "button",
+                        "style": "default",
                         "value": "no"
                     }
                 ]

@@ -8,6 +8,7 @@ import json
 import hmac
 import hashlib
 import time
+import urllib.parse
 import base64
 from botocore.exceptions import ClientError
 
@@ -32,72 +33,92 @@ log.setLevel(logging.DEBUG)
 secrets = boto3.client('secretsmanager')
 
 # Initialize variables
+slack_secret = os.environ["SLACK_SECRET"]
+slack_token = os.environ["SLACK_TOKEN"]
 
 
 def handler(event, context):
     log.debug("Received event {}".format(json.dumps(event)))
 
-    verify_request(secret=, body=event['body'],
-                   timestamp=event['headers']['X-Slack-Request-Timestamp'],
-                   signature=event['headers']['X-Slack-Signature'])
+    if 'X-Slack-Signature' not in event['headers'] and \
+            'X-Slack-Request-Timestamp' not in event['headers']:
+        print("Payload doesn't have required fields")
+        return {"statusCode": 400, "body": "Bad Request"}
 
-    slackWebhookEncrypted = getOpsTbl['Item']['slackWebhookEncrypted']
-    slackHookUrl = "https://" + kms.decrypt(CiphertextBlob=b64decode(slackWebhookEncrypted))['Plaintext']
+    elif verify_request(secret=slack_secret, body=event['body'],
+                        timestamp=event['headers']['X-Slack-Request-Timestamp'],
+                        signature=event['headers']['X-Slack-Signature']) is False:
+            print("Signature doesn't match")
+            return {"statusCode": 400, "body": "Bad Request"}
 
-    try:
-        if "Errors" in incomingMessage['Trigger']['MetricName'] \
-                and "AWS/Lambda" in incomingMessage['Trigger']['Namespace']:
-            newStateValue = incomingMessage['NewStateValue']
-            reasonStateReason = incomingMessage['NewStateReason']
-            functionName = incomingMessage['Trigger']['Dimensions'][0]['value']
-            slackMessage = {
-                "text": "I want to live! Please build me.",
-                "attachments": [
-                    {
-                        "pretext": "I'll tell you how to set up your system.:robot_face:",
-                        "text": "What operating system are you using?",
-                        "callback_id": "os",
-                        "color": "#3AA3E3",
-                        "attachment_type": "default",
-                        "actions": [
-                            {
-                                "name": "mac",
-                                "text": ":apple: Mac",
-                                "type": "button",
-                                "value": "mac"
-                            },
-                            {
-                                "name": "windows",
-                                "text": ":fax: Windows",
-                                "type": "button",
-                                "value": "win"
-                            }
-                        ]
-                    }
-                ]
-            }
+    elif verify_request(secret=slack_secret, body=event['body'],
+                        timestamp=event['headers']['X-Slack-Request-Timestamp'],
+                        signature=event['headers']['X-Slack-Signature']) is True:
+        payload = process_body(body=event['body'])
 
-            # Send notification
-            slackWebhookResponse = requests.post(slackHookUrl, data=json.dumps(slackMessage))
-            print(slackWebhookResponse)
-            return
-    except Exception as e:
-        print(e)
-        print("Input not a Lambda error metric")
+        if payload['actions'][0]['name'] == "no":
+            print("User clicked NO")
 
+            ts = payload['message_ts']
+            text = payload['original_message']['text']
+            channel = payload['channel']['id']
+            attachments = [
+                            payload['original_message']['attachments'][0],
+                            {k: payload['original_message']['attachments'][1][k] for k in
+                             set(list(payload['original_message']['attachments'][1].keys())) - {'actions'}},
+                            {"text": "*:no_entry_sign: <@" + payload['user']['name'] +
+                                     "> cancelled today's request. No further action will be taken.*",
+                             "id": 3}
+                           ]
 
+            slack_response(slack_token, text, channel, ts, attachments)
+            return {"statusCode": 200}
+
+    print("No case fit")
     return
 
+
+def slack_response(token, text, channel, ts, attachments):
+    message = {
+        "text": text,
+        "channel": channel,
+        "ts": ts,
+        "attachments": attachments
+    }
+
+    # print(json.dumps(message))
+    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}
+    response = requests.post('https://slack.com/api/chat.update', data=json.dumps(message), headers=headers)
+    # print(response.content)
+
+    if response.status_code == 200:
+        return
+
+
 def verify_request(secret, body, timestamp, signature):
+    print("Verifying request...")
+    if abs(time.time() - int(timestamp)) > 60 * 5:
+        print("Verify failed time verify")
+        return False
 
-    if abs(time.time() - timestamp) > 60 * 5:
+    sig_basestring = 'v0:' + timestamp + ':' + body
+    calculated_signature = 'v0=' + hmac.new(bytes(secret, 'utf-8'),
+                                            bytes(sig_basestring, 'utf-8'),
+                                            hashlib.sha256).hexdigest()
 
-        sig_basestring = 'v0:' + timestamp + ':' + body
-        calculated_signature = 'v0=' + hmac.new(bytes(secret, 'utf-8'),
-                                                bytes(sig_basestring, 'utf-8'),
-                                                hashlib.sha256).hexdigest()
+    if hmac.compare_digest(calculated_signature, signature):
+        print("Verify passed")
+        return True
+    else:
+        print("Verify failed hmac compare")
+        return False
 
-        if hmac.compare_digest(calculated_signature, signature):
-            return True
-        else:
-            return False
+
+def process_body(body):
+
+    text_payload = urllib.parse.unquote(body).strip('payload=')
+
+    payload = json.loads(text_payload)
+
+    print(json.dumps(payload))
+    return payload

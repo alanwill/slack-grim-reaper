@@ -126,6 +126,7 @@ Resources:
                 Variables:
                     S3_BUCKET_NAME: !Ref s3Bucket
                     SLACK_SECRET: !Ref slackSecret
+                    SLACK_TOKEN: !Ref slackToken
 
 Outputs:
     functionUserListArn: 
