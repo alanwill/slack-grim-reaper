@@ -23,10 +23,6 @@ Parameters:
         Type: String
     s3Bucket:
         Type: String
-    snsTopicDeactivateArn:
-        Type: String
-    snsTopicDeactivateName:
-        Type: String
 
 Globals:
     Function:
@@ -126,7 +122,7 @@ Resources:
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
                 - SNSPublishMessagePolicy:
-                    TopicName: !Ref snsTopicDeactivateName
+                    TopicName: !GetAtt snsTopicDeprovisionusers.TopicName
             Layers:
                 - !Ref layerMain
             Environment:
@@ -134,7 +130,7 @@ Resources:
                     S3_BUCKET_NAME: !Ref s3Bucket
                     SLACK_SECRET: !Ref slackSecret
                     SLACK_TOKEN: !Ref slackToken
-                    SNS_TOPIC_DEACTIVATE: !Ref snsTopicDeactivateArn
+                    SNS_TOPIC_DEACTIVATE: !Ref snsTopicDeprovisionusers
 
     functionUserDeprovisioner:
         Type: AWS::Serverless::Function
@@ -152,6 +148,14 @@ Resources:
             Environment:
                 Variables:
                     SLACK_TOKEN: !Ref slackToken
+
+    snsTopicDeprovisionusers: 
+        Type: AWS::SNS::Topic
+        Properties: 
+            Subscription:
+                -
+                    Endpoint: !GetAtt functionUserDeprovisioner.Arn
+                    Protocol: "lambda"
 
 Outputs:
     functionUserListArn: 

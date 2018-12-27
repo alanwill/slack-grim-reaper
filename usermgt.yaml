@@ -51,8 +51,6 @@ Resources:
                 azureClientSecret: !Ref azureClientSecret
                 layerBucket: !Ref layerBucket
                 s3Bucket: !Ref s3Bucket
-                snsTopicDeactivateArn: !GetAtt nestedStackSns.Outputs.snsTopicDeprovisionusersArn
-                snsTopicDeactivateName: !GetAtt nestedStackSns.Outputs.snsTopicDeprovisionusersName
                 dynamodbTableUserProcessing: !GetAtt nestedStackDynamodb.Outputs.dynamodbTableUserProcessing
 
     nestedStackApigateway:
@@ -77,14 +75,6 @@ Resources:
                 functionUserListArn: !GetAtt nestedStackLambda.Outputs.functionUserListArn
                 functionAdLookupArn: !GetAtt nestedStackLambda.Outputs.functionAdLookupArn
                 functionFinisherArn: !GetAtt nestedStackLambda.Outputs.functionFinisherArn
-
-    nestedStackSns:
-        Type: AWS::Serverless::Application
-        Properties:
-            Location: sam/cfn/cfn-sns-topics.yaml
-            Parameters:
-                stage: !Ref stage
-                functionUserDeprovisionerArn: !GetAtt nestedStackLambda.Outputs.functionUserDeprovisionerArn
 
     s3Bucket:
         Type: AWS::S3::Bucket
