@@ -116,9 +116,7 @@ def verify_request(secret, body, timestamp, signature):
 
 def process_body(body):
 
-    text_payload = urllib.parse.unquote(body).strip('payload=')
-
-    payload = json.loads(text_payload)
+    payload = json.loads(urllib.parse.parse_qs(body)['payload'][0])
 
     print(json.dumps(payload))
     return payload
