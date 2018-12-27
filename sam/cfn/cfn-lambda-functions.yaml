@@ -135,6 +135,23 @@ Resources:
                     SLACK_TOKEN: !Ref slackToken
                     SNS_TOPIC_DEACTIVATE: !Ref snsTopicDeactivateArn
 
+    functionUserDeprovisioner:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: !Join [ "-", [ "slack-user-deprovisioner", !Ref stage ] ]
+            Description: Slack user deprovisioner
+            CodeUri: ../../sam/functions/slack-user-deprovisioner
+            Timeout: 120
+            MemorySize: 128
+            Tracing: Active
+            Policies:
+                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+            Layers:
+                - !Ref layerMain
+            Environment:
+                Variables:
+                    SLACK_TOKEN: !Ref slackToken
+
 Outputs:
     functionUserListArn: 
         Value: !GetAtt functionUserList.Arn
@@ -150,4 +167,9 @@ Outputs:
         Description: Lambda function functionMessageController Arn
     functionMessageControllerName: 
         Value: !Ref functionMessageController
-        Description: Lambda function functionMessageController Name
+        Description: Lambda function functionMessageController Name    functionUserDeprovisionerArn: 
+        Value: !GetAtt functionUserDeprovisioner.Arn
+        Description: Lambda function functionUserDeprovisioner Arn
+    functionUserDeprovisionerName: 
+        Value: !Ref functionUserDeprovisioner
+        Description: Lambda function functionUserDeprovisioner Name

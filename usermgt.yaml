@@ -76,5 +76,13 @@ Resources:
                 functionAdLookupArn: !GetAtt nestedStackLambda.Outputs.functionAdLookupArn
                 functionFinisherArn: !GetAtt nestedStackLambda.Outputs.functionFinisherArn
 
+    nestedStackSns:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-sns-topics.yaml
+            Parameters:
+                stage: !Ref stage
+                functionUserDeprovisionerArn: !GetAtt nestedStackLambda.Outputs.functionUserDeprovisionerArn
+
     s3Bucket:
         Type: AWS::S3::Bucket
