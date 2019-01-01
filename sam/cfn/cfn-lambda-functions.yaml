@@ -153,6 +153,8 @@ Resources:
             Environment:
                 Variables:
                     SLACK_TOKEN: !Ref slackToken
+                    SLACK_SECRET: !Ref slackSecret
+                    USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
 
     snsTopicDeprovisionusers: 
         Type: AWS::SNS::Topic
