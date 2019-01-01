@@ -56,7 +56,7 @@ def lookup_users(guid):
     )
 
     for user in response['Items']:
-        if "autodesk.com" not in user['email']:
+        if "autodesk.com" in user['email']:
             user_list.append(user['slack_id'])
 
     return user_list

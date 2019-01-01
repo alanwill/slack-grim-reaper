@@ -55,12 +55,14 @@ def handler(event, context):
 
 def lookup_users(guid):
     user_list = list()
+
     response = table_userprocessing.query(
         KeyConditionExpression=Key('uuid').eq(guid)
     )
 
     for user in response['Items']:
-        user_list.append(user['email'])
+        if "autodesk.com" in user['email']:
+            user_list.append(user['email'])
 
     return user_list
 
