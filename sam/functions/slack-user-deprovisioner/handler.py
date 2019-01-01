@@ -6,6 +6,7 @@ from boto3.dynamodb.conditions import Key, Attr
 import os
 import sys
 import json
+import re
 import hmac
 import hashlib
 import time
@@ -43,7 +44,12 @@ table_userprocessing = dynamodb.Table(os.environ['USER_PROCESSING_TABLE'])
 def handler(event, context):
     log.debug("Received event {}".format(json.dumps(event)))
 
-    deactivate_user_list(lookup_users(event['guid']))
+    message = json.loads(event['Records'][0]['Sns']['Message'])
+    print(message)
+
+    users = lookup_users(message['default']['guid'])
+    deactivate_user_list(users)
+    post_to_slack(channel=message['default']['channel'], user_list=users, callback_id=message['default']['guid'])
     return
 
 
@@ -56,9 +62,10 @@ def lookup_users(guid):
     )
 
     for user in response['Items']:
-        if "autodesk.com" in user['email']:
+        if re.search(r'\bautodesk.com\b', user['email']):
             user_list.append(user['slack_id'])
 
+    print(user_list)
     return user_list
 
 
@@ -78,7 +85,7 @@ def post_to_slack(channel, user_list, callback_id):
 
     slack_message = {
         "channel": channel,
-        "text": "All " + len(user_list) + " have been disabled.",
+        "text": str(len(user_list)) + " members have been disabled.",
         "callback_id": callback_id
     }
 

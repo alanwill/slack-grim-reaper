@@ -61,9 +61,10 @@ def lookup_users(guid):
     )
 
     for user in response['Items']:
-        if "autodesk.com" in user['email']:
+        if re.search(r'\bautodesk.com\b', user['email']):
             user_list.append(user['email'])
 
+    print(user_list)
     return user_list
 
 

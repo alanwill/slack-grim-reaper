@@ -9,6 +9,7 @@ import json
 import csv
 import tempfile
 import datetime
+import re
 
 # Path to modules needed to package local lambda function for upload
 currentdir = os.path.dirname(os.path.realpath(__file__))
@@ -160,6 +161,7 @@ def deactivate_user_list(guid):
     )
 
     for user in response['Items']:
-        user_list.append("<@" + user['slack_id'] + ">")
+        if re.search(r'\bautodesk.com\b', user['email']):
+            user_list.append("<@" + user['slack_id'] + ">")
 
     return user_list
