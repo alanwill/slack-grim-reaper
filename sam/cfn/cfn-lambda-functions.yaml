@@ -141,6 +141,11 @@ Resources:
             Timeout: 120
             MemorySize: 128
             Tracing: Active
+            Events:
+                snsDeprovisioner:
+                    Type: SNS
+                    Properties:
+                        Topic: !Ref snsTopicDeprovisionusers
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
             Layers:
