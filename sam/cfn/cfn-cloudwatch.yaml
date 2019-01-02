@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: CloudWatch resources
+
+Parameters:
+    stage:
+        Type: String
+    stateMachineUserReporterArn:
+        Type: String
+
+Resources:
+    iamRoleEventRuleDeprovisioner:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: 2012-10-17
+                Statement:
+                    -
+                        Effect: Allow
+                        Principal:
+                            Service: !Sub events.amazonaws.com
+                        Action: "sts:AssumeRole"
+            Path: "/"
+            Policies:
+                -
+                    PolicyName: StatesExecutionPolicy
+                    PolicyDocument:
+                        Version: "2012-10-17"
+                        Statement:
+                            -
+                                Effect: "Allow"
+                                Action: "states:StartExecution"
+                                Resource: !Ref stateMachineUserReporterArn
+
+    deprovisionerSchedule: 
+        Type: AWS::Events::Rule
+        Properties: 
+            Description: "Grim Reaper daily invocation rule"
+            ScheduleExpression: "rate(1 day)"
+            State: "ENABLED"
+            Targets: 
+                - 
+                    Arn: !Ref stateMachineUserReporterArn
+                    Id: "StateMachineReporter.1"
+                    RoleArn: !GetAtt iamRoleEventRuleDeprovisioner.Arn
+
+

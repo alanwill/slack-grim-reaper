@@ -40,6 +40,9 @@ Parameters:
         Description: S3 bucket name containing Lambda layers
 
 Resources:
+###
+# Nested Stacks
+###
     nestedStackLambda:
         Type: AWS::Serverless::Application
         Properties:
@@ -80,5 +83,18 @@ Resources:
                 functionAdLookupArn: !GetAtt nestedStackLambda.Outputs.functionAdLookupArn
                 functionFinisherArn: !GetAtt nestedStackLambda.Outputs.functionFinisherArn
 
+    nestedStackCloudwatch:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-cloudwatch.yaml
+            Parameters:
+                stage: !Ref stage
+                stateMachineUserReporterArn: !GetAtt nestedStackStepfunctions.Outputs.stateMachineUserReporterArn
+                
+
+###
+# S3 Bucket
+###
     s3Bucket:
         Type: AWS::S3::Bucket
+
