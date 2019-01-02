@@ -74,5 +74,8 @@ Resources:
             RoleArn: !GetAtt [ iamRoleStateMachineUserReporter, Arn ]
 
 
-
+Outputs:
+    stateMachineUserReporterArn: 
+        Value: !Ref stateMachineUserReporter
+        Description: State Machine ARN
 
