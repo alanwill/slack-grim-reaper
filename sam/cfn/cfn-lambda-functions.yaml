@@ -150,6 +150,8 @@ Resources:
                         Topic: !Ref snsTopicDeprovisionusers
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+                - DynamoDBReadPolicy:
+                    TableName: !Ref dynamodbTableUserProcessing
             Layers:
                 - !Ref layerMain
             Environment:
