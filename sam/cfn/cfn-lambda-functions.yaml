@@ -7,6 +7,12 @@ Parameters:
         Type: String
     slackToken:
         Type: String
+    slackAdminToken:
+        Type: String
+    slackSecret:
+        Type: String
+    slackChannel:
+        Type: String
     azureTenantId:
         Type: String
     azureClientId:
@@ -103,6 +109,65 @@ Resources:
                 Variables:
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
                     S3_BUCKET_NAME: !Ref s3Bucket
+                    SLACK_TOKEN: !Ref slackToken
+                    SLACK_CHANNEL: !Ref slackChannel
+
+    functionMessageController:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: !Join [ "-", [ "slack-message-controller", !Ref stage ] ]
+            Description: Slack message controller
+            CodeUri: ../../sam/functions/slack-message-controller
+            Timeout: 120
+            MemorySize: 128
+            Tracing: Active
+            Policies:
+                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+                - SNSPublishMessagePolicy:
+                    TopicName: !GetAtt snsTopicDeprovisionusers.TopicName
+            Layers:
+                - !Ref layerMain
+            Environment:
+                Variables:
+                    S3_BUCKET_NAME: !Ref s3Bucket
+                    SLACK_SECRET: !Ref slackSecret
+                    SLACK_TOKEN: !Ref slackToken
+                    SNS_TOPIC_DEACTIVATE: !Ref snsTopicDeprovisionusers
+
+    functionUserDeprovisioner:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: !Join [ "-", [ "slack-user-deprovisioner", !Ref stage ] ]
+            Description: Slack user deprovisioner
+            CodeUri: ../../sam/functions/slack-user-deprovisioner
+            Timeout: 120
+            MemorySize: 128
+            Tracing: Active
+            Events:
+                snsDeprovisioner:
+                    Type: SNS
+                    Properties:
+                        Topic: !Ref snsTopicDeprovisionusers
+            Policies:
+                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+                - DynamoDBReadPolicy:
+                    TableName: !Ref dynamodbTableUserProcessing
+            Layers:
+                - !Ref layerMain
+            Environment:
+                Variables:
+                    SLACK_TOKEN: !Ref slackToken
+                    SLACK_ADMIN_TOKEN: !Ref slackAdminToken
+                    SLACK_SECRET: !Ref slackSecret
+                    USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
+
+    snsTopicDeprovisionusers: 
+        Type: AWS::SNS::Topic
+        Properties: 
+            Subscription:
+                -
+                    Endpoint: !GetAtt functionUserDeprovisioner.Arn
+                    Protocol: "lambda"
 
 Outputs:
     functionUserListArn: 
@@ -114,3 +179,15 @@ Outputs:
     functionFinisherArn: 
         Value: !GetAtt functionFinisher.Arn
         Description: Lambda function functionFinisher Arn
+    functionMessageControllerArn: 
+        Value: !GetAtt functionMessageController.Arn
+        Description: Lambda function functionMessageController Arn
+    functionMessageControllerName: 
+        Value: !Ref functionMessageController
+        Description: Lambda function functionMessageController Name
+    functionUserDeprovisionerArn: 
+        Value: !GetAtt functionUserDeprovisioner.Arn
+        Description: Lambda function functionUserDeprovisioner Arn
+    functionUserDeprovisionerName: 
+        Value: !Ref functionUserDeprovisioner
+        Description: Lambda function functionUserDeprovisioner Name

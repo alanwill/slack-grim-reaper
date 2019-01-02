@@ -5,12 +5,90 @@ Description: API Gateway resources
 Parameters:
     stage:
         Type: String
+    functionMessageControllerName:
+        Type: String
+    functionMessageControllerArn:
+        Type: String
 
 Resources:
+    iamRoleCloudwatchLogs:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: 2012-10-17
+                Statement:
+                - 
+                    Effect: Allow
+                    Action: sts:AssumeRole
+                    Principal:
+                        Service: apigateway.amazonaws.com
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/service-role/AmazonApiGatewayPushToCloudWatchLogs
+
+    apiAccount:
+        Type: AWS::ApiGateway::Account
+        Properties: 
+            CloudWatchRoleArn: !GetAtt iamRoleCloudwatchLogs.Arn
+
+    cwlSlackGrimReaper: 
+        Type: AWS::Logs::LogGroup
+        Properties: 
+            RetentionInDays: 7
+
     apigatewaySlack:
-        Type: AWS::Serverless::Api
+        Type: AWS::ApiGateway::RestApi
+        Properties:
+            Name: !Join [ "-", [ "slack-grim-reaper", !Ref stage ] ]
+            Description: "This API serves as the Request endpoint for Slack's interactive components"
+            EndpointConfiguration:
+                Types:
+                - EDGE
+        
+    apigatewayProxyResource:
+        Type: AWS::ApiGateway::Resource
+        Properties:
+            RestApiId: !Ref apigatewaySlack
+            ParentId: !GetAtt [apigatewaySlack, RootResourceId]
+            PathPart: '{proxy+}'
+        
+    apigatewayResourceANY:
+        Type: AWS::ApiGateway::Method
+        Properties:
+            RestApiId: !Ref apigatewaySlack
+            ResourceId: !Ref apigatewayProxyResource
+            HttpMethod: POST      
+            AuthorizationType: NONE
+            Integration:
+                Type: AWS_PROXY
+                IntegrationHttpMethod: POST
+                Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${functionMessageControllerArn}/invocations
+
+    apigatewaySlackStage:
+        Type: AWS::ApiGateway::Stage
         Properties:
             StageName: !Ref stage
-            DefinitionUri: ../../sam/api/slack-swagger.yaml
+            RestApiId: !Ref apigatewaySlack
+            DeploymentId: !Ref apigatewaySlackDeployment
+            TracingEnabled: true
+            AccessLogSetting: 
+                DestinationArn: !GetAtt cwlSlackGrimReaper.Arn
+            MethodSettings:
+                - 
+                    ResourcePath: /
+                    HttpMethod: '*' 
+                    MetricsEnabled: true
+                    DataTraceEnabled: true
+                    LoggingLevel: ERROR
+    
+    apigatewaySlackDeployment: 
+        Type: AWS::ApiGateway::Deployment
+        Properties: 
+            RestApiId: !Ref apigatewaySlack
 
-
+    permissionSlackConnector:
+        Type: AWS::Lambda::Permission
+        Properties:
+            FunctionName: !Ref functionMessageControllerName
+            Action: lambda:InvokeFunction
+            Principal: apigateway.amazonaws.com
+            SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${apigatewaySlack}/*"

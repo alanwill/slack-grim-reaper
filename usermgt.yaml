@@ -17,6 +17,15 @@ Parameters:
     slackToken:
         Type: String
         Description: Slack Token
+    slackAdminToken:
+        Type: String
+        Description: Slack Admin Token
+    slackSecret:
+        Type: String
+        Description: Slack Secret
+    slackChannel:
+        Type: String
+        Description: Slack Channel
     azureTenantId:
         Type: String
         Description: Azure Tenant Id
@@ -38,6 +47,9 @@ Resources:
             Parameters:
                 stage: !Ref stage
                 slackToken: !Ref slackToken
+                slackAdminToken: !Ref slackAdminToken
+                slackSecret: !Ref slackSecret
+                slackChannel: !Ref slackChannel
                 azureTenantId: !Ref azureTenantId
                 azureClientId: !Ref azureClientId
                 azureClientSecret: !Ref azureClientSecret
@@ -51,6 +63,8 @@ Resources:
             Location: sam/cfn/cfn-api-gateways.yaml
             Parameters:
                 stage: !Ref stage
+                functionMessageControllerName: !GetAtt nestedStackLambda.Outputs.functionMessageControllerName
+                functionMessageControllerArn: !GetAtt nestedStackLambda.Outputs.functionMessageControllerArn
 
     nestedStackDynamodb:
         Type: AWS::Serverless::Application
