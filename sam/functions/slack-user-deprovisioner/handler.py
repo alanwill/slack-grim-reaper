@@ -38,6 +38,7 @@ dynamodb = boto3.resource('dynamodb')
 # Initialize variables
 slack_secret = os.environ["SLACK_SECRET"]
 slack_token = os.environ["SLACK_TOKEN"]
+slack_admin_token = os.environ["SLACK_ADMIN_TOKEN"]
 table_userprocessing = dynamodb.Table(os.environ['USER_PROCESSING_TABLE'])
 
 
@@ -74,7 +75,7 @@ def deactivate_user_list(user_list):
     for user in user_list:
 
         url = "https://api.slack.com/scim/v1/Users/" + user
-        headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slack_token}
+        headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slack_admin_token}
         response = requests.delete(url, headers=headers)
 
         if response.status_code == 200:

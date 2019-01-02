@@ -17,6 +17,9 @@ Parameters:
     slackToken:
         Type: String
         Description: Slack Token
+    slackAdminToken:
+        Type: String
+        Description: Slack Admin Token
     slackSecret:
         Type: String
         Description: Slack Secret
@@ -44,6 +47,7 @@ Resources:
             Parameters:
                 stage: !Ref stage
                 slackToken: !Ref slackToken
+                slackAdminToken: !Ref slackAdminToken
                 slackSecret: !Ref slackSecret
                 slackChannel: !Ref slackChannel
                 azureTenantId: !Ref azureTenantId
