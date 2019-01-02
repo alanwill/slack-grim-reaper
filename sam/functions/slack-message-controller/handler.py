@@ -146,11 +146,11 @@ def process_body(body):
 
 def deactivate_users(callback_id, callback_channel):
     guid = callback_id.split(":")[1]
-    payload = {"guid": guid, "channel": callback_channel}
+    payload = '{"guid": "' + guid + '", "channel": "' + callback_channel + '"}'
 
     response = sns.publish(
         TopicArn=sns_topic_deactivate,
-        Message=str({"default": payload, "lambda": payload, "email": payload}),
+        Message='{"default": ' + payload + ', "lambda": ' + payload + ', "email": ' + payload + '}',
     )
 
     return

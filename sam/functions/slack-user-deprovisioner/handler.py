@@ -6,6 +6,7 @@ from boto3.dynamodb.conditions import Key, Attr
 import os
 import sys
 import json
+import re
 import hmac
 import hashlib
 import time
@@ -37,13 +38,26 @@ dynamodb = boto3.resource('dynamodb')
 # Initialize variables
 slack_secret = os.environ["SLACK_SECRET"]
 slack_token = os.environ["SLACK_TOKEN"]
+slack_admin_token = os.environ["SLACK_ADMIN_TOKEN"]
 table_userprocessing = dynamodb.Table(os.environ['USER_PROCESSING_TABLE'])
 
 
 def handler(event, context):
     log.debug("Received event {}".format(json.dumps(event)))
 
-    deactivate_user_list(lookup_users(event['guid']))
+    message = json.loads(event['Records'][0]['Sns']['Message'])
+    print(message)
+
+    users = lookup_users(message['default']['guid'])
+    if deactivate_user_list(users) is True:
+        post_to_slack(channel=message['default']['channel'],
+                      callback_id="deactivate:" + message['default']['guid'],
+                      text=str(len(users)) + " members have been disabled.")
+    else:
+        post_to_slack(channel=message['default']['channel'],
+                      callback_id="deactivate:" + message['default']['guid'],
+                      text="There was a problem disabling members, please check the logs.")
+
     return
 
 
@@ -56,29 +70,39 @@ def lookup_users(guid):
     )
 
     for user in response['Items']:
-        if "autodesk.com" not in user['email']:
+        if re.search(r'\bautodesk.com\b', user['email']):
             user_list.append(user['slack_id'])
 
+    print(user_list)
     return user_list
 
 
 def deactivate_user_list(user_list):
 
+    count_failure = 0
+
     for user in user_list:
 
         url = "https://api.slack.com/scim/v1/Users/" + user
-        headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slack_token}
+        headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slack_admin_token}
         response = requests.delete(url, headers=headers)
 
         if response.status_code == 200:
-            return
+            continue
+        else:
+            count_failure += 1
+
+    if count_failure > 1:
+        return False
+    else:
+        return True
 
 
-def post_to_slack(channel, user_list, callback_id):
+def post_to_slack(channel, callback_id, text):
 
     slack_message = {
         "channel": channel,
-        "text": "All " + len(user_list) + " have been disabled.",
+        "text": text,
         "callback_id": callback_id
     }
 

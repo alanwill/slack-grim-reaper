@@ -7,6 +7,8 @@ Parameters:
         Type: String
     slackToken:
         Type: String
+    slackAdminToken:
+        Type: String
     slackSecret:
         Type: String
     slackChannel:
@@ -141,13 +143,23 @@ Resources:
             Timeout: 120
             MemorySize: 128
             Tracing: Active
+            Events:
+                snsDeprovisioner:
+                    Type: SNS
+                    Properties:
+                        Topic: !Ref snsTopicDeprovisionusers
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+                - DynamoDBReadPolicy:
+                    TableName: !Ref dynamodbTableUserProcessing
             Layers:
                 - !Ref layerMain
             Environment:
                 Variables:
                     SLACK_TOKEN: !Ref slackToken
+                    SLACK_ADMIN_TOKEN: !Ref slackAdminToken
+                    SLACK_SECRET: !Ref slackSecret
+                    USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
 
     snsTopicDeprovisionusers: 
         Type: AWS::SNS::Topic
