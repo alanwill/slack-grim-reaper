@@ -49,8 +49,15 @@ def handler(event, context):
     print(message)
 
     users = lookup_users(message['default']['guid'])
-    deactivate_user_list(users)
-    post_to_slack(channel=message['default']['channel'], user_list=users, callback_id=message['default']['guid'])
+    if deactivate_user_list(users) is True:
+        post_to_slack(channel=message['default']['channel'],
+                      callback_id="deactivate:" + message['default']['guid'],
+                      text=str(len(users)) + " members have been disabled.")
+    else:
+        post_to_slack(channel=message['default']['channel'],
+                      callback_id="deactivate:" + message['default']['guid'],
+                      text="There was a problem disabling members, please check the logs.")
+
     return
 
 
@@ -72,6 +79,8 @@ def lookup_users(guid):
 
 def deactivate_user_list(user_list):
 
+    count_failure = 0
+
     for user in user_list:
 
         url = "https://api.slack.com/scim/v1/Users/" + user
@@ -79,14 +88,21 @@ def deactivate_user_list(user_list):
         response = requests.delete(url, headers=headers)
 
         if response.status_code == 200:
-            return
+            continue
+        else:
+            count_failure += 1
+
+    if count_failure > 1:
+        return False
+    else:
+        return True
 
 
-def post_to_slack(channel, user_list, callback_id):
+def post_to_slack(channel, callback_id, text):
 
     slack_message = {
         "channel": channel,
-        "text": str(len(user_list)) + " members have been disabled.",
+        "text": text,
         "callback_id": callback_id
     }
 
