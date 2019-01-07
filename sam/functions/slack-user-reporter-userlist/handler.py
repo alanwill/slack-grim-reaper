@@ -15,12 +15,6 @@ sys.path.append(os.path.join(currentdir, "./vendored"))
 # Modules downloaded into the vendored directory
 import requests
 
-# AWS X-Ray
-from aws_xray_sdk.core import xray_recorder
-from aws_xray_sdk.core import patch_all
-
-patch_all()
-
 # Logging
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
@@ -32,6 +26,11 @@ if os.getenv("AWS_SAM_LOCAL"):
 else:
     dynamodb = boto3.resource('dynamodb')
     s3 = boto3.resource('s3')
+
+    #AWS X-Ray
+    from aws_xray_sdk.core import xray_recorder
+    from aws_xray_sdk.core import patch_all
+    patch_all()
 
 # Initialize variables
 slack_token = os.environ["SLACK_TOKEN"]
