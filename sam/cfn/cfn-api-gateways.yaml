@@ -82,6 +82,7 @@ Resources:
     
     apigatewaySlackDeployment: 
         Type: AWS::ApiGateway::Deployment
+        DependsOn: apigatewayResourceANY
         Properties: 
             RestApiId: !Ref apigatewaySlack
 

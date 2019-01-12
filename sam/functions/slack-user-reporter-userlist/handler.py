@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import uuid
+from botocore.exceptions import ClientError
 
 # Path to modules needed to package local lambda function for upload
 currentdir = os.path.dirname(os.path.realpath(__file__))
@@ -14,19 +15,22 @@ sys.path.append(os.path.join(currentdir, "./vendored"))
 # Modules downloaded into the vendored directory
 import requests
 
-# AWS X-Ray
-from aws_xray_sdk.core import xray_recorder
-from aws_xray_sdk.core import patch_all
-
-patch_all()
-
 # Logging
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 
-# Initialize AWS services
-s3 = boto3.resource('s3')
-dynamodb = boto3.resource('dynamodb')
+# Initialize AWS services (testing is done with localstack when AWS_SAM_LOCAL env is set
+if os.getenv("AWS_SAM_LOCAL"):
+    dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:4569/")
+    s3 = boto3.resource('s3', endpoint_url="http://localhost:4572/")
+else:
+    dynamodb = boto3.resource('dynamodb')
+    s3 = boto3.resource('s3')
+
+    # AWS X-Ray
+    # from aws_xray_sdk.core import xray_recorder
+    from aws_xray_sdk.core import patch_all
+    patch_all()
 
 # Initialize variables
 slack_token = os.environ["SLACK_TOKEN"]
@@ -86,12 +90,32 @@ def write_to_dynamodb(users, guid):
 
     # Write to DynamoDB
     for email in users:
-        table_userprocessing.put_item(
-            Item={
-                "uuid": guid,
-                "email": email[0].lower(),
-                "slack_id": email[1]
-            }
-        )
+        try:
+            table_userprocessing.put_item(
+                Item={
+                    "uuid": guid,
+                    "email": email[0].lower(),
+                    "slack_id": email[1]
+                }
+            )
+        # TODO: Complete error handling logic
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'InternalServerError':
+                # retry
+                raise e
+            elif e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                # print and escalate
+                raise e
+            elif e.response['Error']['Code'] == 'ItemCollectionSizeLimitExceededException':
+                raise e
+            elif e.response['Error']['Code'] == 'RequestLimitExceeded':
+                # retry
+                raise e
+            elif e.response['Error']['Code'] == 'ResourceNotFoundException':
+                # print and escalate
+                raise e
+            elif e.response['Error']['Code'] == 'TransactionConflictException':
+                # print and escalate
+                raise e
 
     return
