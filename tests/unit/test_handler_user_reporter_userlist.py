@@ -1,9 +1,9 @@
 import os
-import json
+# import json
 import uuid
-import pytest
+# import pytest
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 import sys
 sys.path.append('../sam/functions/slack-user-reporter-userlist')
 import handler
