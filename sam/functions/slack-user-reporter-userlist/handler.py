@@ -27,8 +27,8 @@ else:
     dynamodb = boto3.resource('dynamodb')
     s3 = boto3.resource('s3')
 
-    #AWS X-Ray
-    from aws_xray_sdk.core import xray_recorder
+    # AWS X-Ray
+    # from aws_xray_sdk.core import xray_recorder
     from aws_xray_sdk.core import patch_all
     patch_all()
 
