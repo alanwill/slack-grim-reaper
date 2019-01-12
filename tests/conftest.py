@@ -1,6 +1,7 @@
 import pytest
 import os
 import uuid
+import platform
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -8,13 +9,19 @@ def setup_env():
     """Setup AWS mock environment before tests, then revert all changes"""
 
     # Launch localstack environment
-    os.system('TMPDIR=/private$TMPDIR docker-compose up -d')
+    if platform.system() == "Darwin":
+        os.system('TMPDIR=/private$TMPDIR docker-compose up -d')
+    else:
+        os.system('docker-compose up -d')
 
     yield
 
     # Teardown
     # Turn down localstack environment
-    os.system('TMPDIR=/private$TMPDIR docker-compose down')
+    if platform.system() == "Darwin":
+        os.system('TMPDIR=/private$TMPDIR docker-compose down')
+    else:
+        os.system('docker-compose down')
 
     return
 
