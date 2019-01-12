@@ -30,4 +30,3 @@ def setup_env():
 def data_user_record():
     """Single user record to insert into DB"""
     return {"test@test.com", "U122345"}, str(uuid.uuid4())
-

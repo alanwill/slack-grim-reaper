@@ -119,5 +119,3 @@ def write_to_dynamodb(users, guid):
                 raise e
 
     return
-
-
