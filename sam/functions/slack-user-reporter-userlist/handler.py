@@ -98,6 +98,7 @@ def write_to_dynamodb(users, guid):
                     "slack_id": email[1]
                 }
             )
+        # TODO: Complete error handling logic
         except ClientError as e:
             if e.response['Error']['Code'] == 'InternalServerError':
                 # retry
