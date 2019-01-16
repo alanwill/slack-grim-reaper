@@ -122,7 +122,7 @@ def azure_auth():
 def azuread_users(user_email, access_token, guid):
     headers = {'Authorization': 'Bearer ' + access_token}
     querystring = {'$select': 'department,displayName,userPrincipalName'}
-    url = "https://graph.microsoft.com/v1.0/users/" + user_email
+    url = "https://graph.microsoft.com/v1.0/users/?$filter=mail%20eq%20'" + user_email + "'"
 
     response = requests.request("GET", url, params=querystring, headers=headers)
     response_data = json.loads(response.content)
@@ -131,7 +131,7 @@ def azuread_users(user_email, access_token, guid):
         access_token = azure_auth()
         headers = {'Authorization': 'Bearer ' + access_token}
         querystring = {'$select': 'department,displayName,userPrincipalName'}
-        url = "https://graph.microsoft.com/v1.0/users/" + user_email
+        url = "https://graph.microsoft.com/v1.0/users/?$filter=mail%20eq%20'" + user_email + "'"
 
         response = requests.request("GET", url, params=querystring, headers=headers)
         response_data = json.loads(response.content)
