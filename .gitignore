@@ -160,5 +160,4 @@ fabric.properties
 
 # AWS SAM 
 sam/layers/build
-sam/layers/*.zip
 sam-output.yaml
