@@ -44,7 +44,7 @@ def handler(event, context):
 
     slack_users, guid = slack_active_users()[0], slack_active_users()[1]
 
-    #get_param('slackBotToken', True)
+    # get_param('slackBotToken', True)
 
     return {
                 'count': len(slack_users),
@@ -66,7 +66,8 @@ def get_param(param, secret):
     elif secret is True:
         try:
             response = ssm.get_parameter(
-                Name='/aws/reference/secretsmanager/slack-grim-reaper/' + stage + '/' + param,
+                Name='/aws/reference/secretsmanager/slack-grim-reaper/' +
+                     stage + '/' + param,
                 WithDecryption=True
             )
             return response['Parameter']['Value']
