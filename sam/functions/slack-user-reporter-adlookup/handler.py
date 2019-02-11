@@ -141,20 +141,28 @@ def azuread_users(user_email, access_token, guid):
         response = requests.request("GET", url, params=querystring, headers=headers)
         response_data = json.loads(response.content)
 
-        if response.status_code == 200 and 'id' in response_data['value'][0]:
+        if response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
 
             process_200(user_email, response_data, response.status_code, guid)
 
-    elif response.status_code == 200 and 'id' in response_data['value'][0]:
+    elif response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
         process_200(user_email, response_data, response.status_code, guid)
 
-    elif response.status_code == 200 and 'id' not in response_data['value'][0]:
+    elif response.status_code == 200 and response_data['value'][0]['accountEnabled'] is False:
         update_record(email=user_email,
                       guid=guid,
                       department="",
                       division="",
                       status_code=404)
-        print(user_email, "was not found.")
+        print(user_email, "is a disabled account.")
+        return
+    elif response.status_code == 200 and 'accountEnabled' not in response_data['value'][0]:
+        update_record(email=user_email,
+                      guid=guid,
+                      department="",
+                      division="",
+                      status_code=404)
+        print(user_email, "was was not found.")
         return
     else:
         raise Exception({"code": "5000", "message": "ERROR: Unable to retrieve Azure Auth Token"})
@@ -176,7 +184,7 @@ def process_200(user_email, response_data, status_code, guid):
     # If there's a match, use that to match DynamoDB value
     for i in options:
         if user_email == i:
-            update_record(email=response_data['value'][0]['mail'].lower(),
+            update_record(email=i,
                           guid=guid,
                           department=response_data['value'][0]['department'],
                           division=re.search('^([\w]+)', response_data['value'][0]['department']).group(),
