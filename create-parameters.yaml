@@ -1,0 +1,151 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Slack User Management - Load Parameters
+
+Parameters:
+    stage:
+        Type: String
+        AllowedValues:
+            - alpha
+            - beta
+            - prod
+        Default: alpha
+        Description: Enter alpha, beta or prod to designate the deployment stage/environment
+    notificationsEmail:
+        Type: String
+        AllowedPattern: "^[\\x20-\\x45]?[\\w-\\+]+(\\.[\\w]+)*@[\\w-]+(\\.[\\w]+)*(\\.[a-z]{2,})$"
+        Default: test@test.com
+        Description: Enter the email address of a person, group or system to be notified of alarms
+    slackBotToken:
+        Type: String
+        NoEcho: true
+        Default: xoxb-xxx
+        Description: Slack Bot Token
+    slackAdminToken:
+        Type: String
+        NoEcho: true
+        Default: xoxp-xxx
+        Description: Slack Admin User Token
+    slackSigningSecret:
+        Type: String
+        NoEcho: true
+        Default: 1234567890
+        Description: Slack Signing Secret
+    slackChannel:
+        Type: String
+        Default: CCCCCCCCC
+        Description: Slack Channel Id
+    azureTenantId:
+        Type: String
+        Default: 0a000000-0a00-0a00-0a00-0a0000000000
+        Description: Azure Tenant Id
+    azureClientId:
+        Type: String
+        Default: 0a000000-0a00-0a00-0a00-0a0000000000
+        Description: Azure Client Id
+    azureClientSecret:
+        Type: String
+        NoEcho: true
+        Default: xxxxxxxxxxxxxxxxxx
+        Description: Azure Client Secret
+    layerBucket:
+        Type: String
+        Default: my-bucket-name
+        Description: Name of S3 bucket containing Lambda layers
+
+Resources:
+###
+# SSM Parameter Store
+###
+    parameterNotificationsEmail:
+        Type: "AWS::SSM::Parameter"
+        Properties:
+            Name: !Join [ "/", [ "/slack-grim-reaper", !Ref stage, "notificationsEmail" ] ]
+            Type: "String"
+            Value: !Ref notificationsEmail
+            Description: "Notifications Email"
+            AllowedPattern: "^(.+)@(.+)$"
+
+    parameterSlackChannel:
+        Type: "AWS::SSM::Parameter"
+        Properties:
+            Name: !Join [ "/", [ "/slack-grim-reaper", !Ref stage, "slackChannel" ] ]
+            Type: "String"
+            Value: !Ref slackChannel
+            Description: "Slack Channel Name"
+            AllowedPattern: "^[A-Z0-9]{9}$"
+
+    parameterLayerBucket:
+        Type: "AWS::SSM::Parameter"
+        Properties:
+            Name: !Join [ "/", [ "/slack-grim-reaper", !Ref stage, "layerBucket" ] ]
+            Type: "String"
+            Value: !Ref layerBucket
+            Description: "Lambda Layer S3 Bucket Name"
+            AllowedPattern: "^[a-zA-Z0-9_.-]*$"
+
+    parameterAzureClientId:
+        Type: "AWS::SSM::Parameter"
+        Properties:
+            Name: !Join [ "/", [ "/slack-grim-reaper", !Ref stage, "azureClientId" ] ]
+            Type: "String"
+            Value: !Ref azureClientId
+            Description: "Azure Client Id"
+            AllowedPattern: "(\\{){0,1}[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}(\\}){0,1}"
+
+    parameterAzureTenantId:
+        Type: "AWS::SSM::Parameter"
+        Properties:
+            Name: !Join [ "/", [ "/slack-grim-reaper", !Ref stage, "azureTenantId" ] ]
+            Type: "String"
+            Value: !Ref azureTenantId
+            Description: "Azure Tenant Id"
+            AllowedPattern: "(\\{){0,1}[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}(\\}){0,1}"
+
+###
+# Secrets Manager
+###
+
+    secretsSlackBotToken:
+        Type: "AWS::SecretsManager::Secret"
+        Properties:
+            Name: !Join [ "/", [ "/aws/reference/secretsmanager/slack-grim-reaper", !Ref stage, "slackBotToken" ] ]
+            Description: "Slack Bot Token"
+            SecretString: !Sub '{"token":"${slackBotToken}"}'
+            Tags:
+                -
+                    Key: appName
+                    Value: Slack Grim Reaper
+
+    secretsSlackAdminToken:
+        Type: "AWS::SecretsManager::Secret"
+        Properties:
+            Name: !Join [ "/", [ "/aws/reference/secretsmanager/slack-grim-reaper", !Ref stage, "slackAdminToken" ] ]
+            Description: "Slack Admin Token"
+            SecretString: !Sub '{"token":"${slackAdminToken}"}'
+            Tags:
+                -
+                    Key: appName
+                    Value: Slack Grim Reaper
+
+    secretsSlackSigningSecret:
+        Type: "AWS::SecretsManager::Secret"
+        Properties:
+            Name: !Join [ "/", [ "/aws/reference/secretsmanager/slack-grim-reaper", !Ref stage, "slackSigningSecret" ] ]
+            Description: "Slack Signing Secret"
+            SecretString: !Sub '{"token":"${slackSigningSecret}"}'
+            Tags:
+                -
+                    Key: appName
+                    Value: Slack Grim Reaper
+
+    secretsAzureClientSecret:
+        Type: "AWS::SecretsManager::Secret"
+        Properties:
+            Name: !Join [ "/", [ "/aws/reference/secretsmanager/slack-grim-reaper", !Ref stage, "azureClientSecret" ] ]
+            Description: "Azure Client Secret"
+            SecretString: !Sub '{"token":"${azureClientSecret}"}'
+            Tags:
+                -
+                    Key: appName
+                    Value: Slack Grim Reaper
+

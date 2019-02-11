@@ -26,6 +26,7 @@ if os.getenv("AWS_SAM_LOCAL"):
 else:
     dynamodb = boto3.resource('dynamodb')
     s3 = boto3.resource('s3')
+    ssm = boto3.client('ssm')
 
     # AWS X-Ray
     # from aws_xray_sdk.core import xray_recorder
@@ -34,6 +35,7 @@ else:
 
 # Initialize variables
 slack_token = os.environ["SLACK_TOKEN"]
+stage = os.environ["STAGE"]
 table_userprocessing = dynamodb.Table(os.environ['USER_PROCESSING_TABLE'])
 
 
@@ -42,10 +44,36 @@ def handler(event, context):
 
     slack_users, guid = slack_active_users()[0], slack_active_users()[1]
 
+    # get_param('slackBotToken', True)
+
     return {
                 'count': len(slack_users),
                 'guid': guid
             }
+
+
+def get_param(param, secret):
+
+    if secret is False:
+        try:
+            response = ssm.get_parameter(
+                Name='/slack-grim-reaper/' + stage + '/' + param,
+            )
+            return response['Parameter']['Value']
+        except ClientError as e:
+            print(e)
+            raise
+    elif secret is True:
+        try:
+            response = ssm.get_parameter(
+                Name='/aws/reference/secretsmanager/slack-grim-reaper/' +
+                     stage + '/' + param,
+                WithDecryption=True
+            )
+            return response['Parameter']['Value']
+        except ClientError as e:
+            print(e)
+            raise
 
 
 def slack_active_users():

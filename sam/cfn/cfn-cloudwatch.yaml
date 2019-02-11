@@ -36,7 +36,7 @@ Resources:
         Type: AWS::Events::Rule
         Properties: 
             Description: "Grim Reaper daily invocation rule"
-            ScheduleExpression: "rate(1 day)"
+            ScheduleExpression: "cron(0 17 * * ? *)"
             State: "ENABLED"
             Targets: 
                 - 
