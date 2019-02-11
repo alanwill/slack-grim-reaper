@@ -81,7 +81,7 @@ Resources:
             Type: "String"
             Value: !Ref layerBucket
             Description: "Lambda Layer S3 Bucket Name"
-            AllowedPattern: "^[a-zA-Z0-9_.-]*$" 
+            AllowedPattern: "^[a-zA-Z0-9_.-]*$"
 
     parameterAzureClientId:
         Type: "AWS::SSM::Parameter"
