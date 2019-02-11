@@ -59,10 +59,16 @@ Resources:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
                 - DynamoDBCrudPolicy:
                     TableName: !Ref dynamodbTableUserProcessing
+                - Statement:
+                    - 
+                        Action: [ 'ssm:GetParameter', 'secretsmanager:GetSecretValue' ]
+                        Effect: Allow
+                        Resource: '*'
             Layers:
                 - !Ref layerMain
             Environment:
                 Variables:
+                    STAGE: !Ref stage
                     SLACK_TOKEN: !Ref slackToken
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
 
