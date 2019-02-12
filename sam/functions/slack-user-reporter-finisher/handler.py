@@ -157,7 +157,7 @@ def deactivate_user_list(guid):
 
     response = table_userprocessing.query(
         KeyConditionExpression=Key('uuid').eq(guid),
-        FilterExpression=Attr('status_code').ne(200)
+        FilterExpression=Attr('status_code').eq(404)
     )
 
     for user in response['Items']:
