@@ -96,8 +96,6 @@ def update_record(email, guid, department, division, status_code):
             ExpressionAttributeValues={':val1': status_code}
         )
 
-    return
-
 
 def azure_auth():
     url = "https://login.microsoft.com/" + azure_tenant_id + "/oauth2/v2.0/token"
@@ -155,7 +153,6 @@ def azuread_users(user_email, access_token, guid):
                       division="",
                       status_code=404)
         print(user_email, "is a disabled account.")
-        return
     elif response.status_code == 200 and 'accountEnabled' not in response_data['value'][0]:
         update_record(email=user_email,
                       guid=guid,
@@ -163,7 +160,6 @@ def azuread_users(user_email, access_token, guid):
                       division="",
                       status_code=404)
         print(user_email, "was was not found.")
-        return
     else:
         raise Exception({"code": "5000", "message": "ERROR: Unable to retrieve Azure Auth Token"})
 
@@ -191,4 +187,3 @@ def process_200(user_email, response_data, status_code, guid):
                           status_code=status_code)
         else:
             pass
-    return
