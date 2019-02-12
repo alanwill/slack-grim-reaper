@@ -121,8 +121,11 @@ def azure_auth():
 
 def azuread_users(user_email, access_token, guid):
     headers = {'Authorization': 'Bearer ' + access_token}
-    querystring = {'$select': 'department,displayName,userPrincipalName'}
-    url = "https://graph.microsoft.com/v1.0/users/" + user_email
+    querystring = {'filter': 'mail eq \'' + user_email +
+                             '\' or userPrincipalName eq \'' + user_email +
+                             '\' or proxyAddresses/any(x:x eq \'SMTP:' + user_email +
+                             '\')'}
+    url = "https://graph.microsoft.com/beta/users"
 
     response = requests.request("GET", url, params=querystring, headers=headers)
     response_data = json.loads(response.content)
@@ -130,33 +133,62 @@ def azuread_users(user_email, access_token, guid):
     if response.status_code == 401 and response_data['error']['code'] == 'InvalidAuthenticationToken':
         access_token = azure_auth()
         headers = {'Authorization': 'Bearer ' + access_token}
-        querystring = {'$select': 'department,displayName,userPrincipalName'}
-        url = "https://graph.microsoft.com/v1.0/users/" + user_email
-
+        querystring = {'filter': 'mail eq \'' + user_email +
+                                 '\' or userPrincipalName eq \'' + user_email +
+                                 '\' or proxyAddresses/any(x:x eq \'SMTP:' + user_email +
+                                 '\')'}
+        url = "https://graph.microsoft.com/beta/users"
         response = requests.request("GET", url, params=querystring, headers=headers)
         response_data = json.loads(response.content)
 
-        if response.status_code == 200:
-            update_record(email=response_data['userPrincipalName'].lower(),
-                          guid=guid,
-                          department=response_data['department'],
-                          division=re.search('^([\w]+)', response_data['department']).group(),
-                          status_code=response.status_code)
-            return
-    elif response.status_code == 200:
-        update_record(email=response_data['userPrincipalName'].lower(),
-                      guid=guid,
-                      department=response_data['department'],
-                      division=re.search('^([\w]+)', response_data['department']).group(),
-                      status_code=response.status_code)
-        return
-    elif response.status_code == 404:
-        update_record(email=response_data['userPrincipalName'].lower(),
+        if response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
+
+            process_200(user_email, response_data, response.status_code, guid)
+
+    elif response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
+        process_200(user_email, response_data, response.status_code, guid)
+
+    elif response.status_code == 200 and response_data['value'][0]['accountEnabled'] is False:
+        update_record(email=user_email,
                       guid=guid,
                       department="",
                       division="",
-                      status_code=response.status_code)
-        print(response_data['userPrincipalName'].lower(), "was not found.")
+                      status_code=404)
+        print(user_email, "is a disabled account.")
+        return
+    elif response.status_code == 200 and 'accountEnabled' not in response_data['value'][0]:
+        update_record(email=user_email,
+                      guid=guid,
+                      department="",
+                      division="",
+                      status_code=404)
+        print(user_email, "was was not found.")
         return
     else:
         raise Exception({"code": "5000", "message": "ERROR: Unable to retrieve Azure Auth Token"})
+
+
+def process_200(user_email, response_data, status_code, guid):
+    proxy_address_smtp = user_email
+
+    # Extract SMTP proxyAddresses from payload
+    for i in response_data['value'][0]['proxyAddresses']:
+        if i.startswith('SMTP'):
+            proxy_address_smtp = i.split(':')[1]
+
+    # Create a dictionary with possible options for valid email
+    options = [response_data['value'][0]['mail'].lower(),
+               response_data['value'][0]['userPrincipalName'].lower(),
+               proxy_address_smtp]
+
+    # If there's a match, use that to match DynamoDB value
+    for i in options:
+        if user_email == i:
+            update_record(email=i,
+                          guid=guid,
+                          department=response_data['value'][0]['department'],
+                          division=re.search('^([\w]+)', response_data['value'][0]['department']).group(),
+                          status_code=status_code)
+        else:
+            pass
+    return
