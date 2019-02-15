@@ -121,7 +121,7 @@ def write_to_dynamodb(users, guid):
         try:
             table_userprocessing.put_item(
                 Item={
-                    "uuid": guid,
+                    "guid": guid,
                     "email": email[0].lower(),
                     "slack_id": email[1]
                 }

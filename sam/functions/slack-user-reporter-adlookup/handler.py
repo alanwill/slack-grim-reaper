@@ -57,7 +57,7 @@ def lookup_users(guid):
     user_list = list()
 
     response = table_userprocessing.query(
-        KeyConditionExpression=Key('uuid').eq(guid)
+        KeyConditionExpression=Key('guid').eq(guid)
     )
 
     for user in response['Items']:
@@ -72,7 +72,7 @@ def update_record(email, guid, department, division, status_code):
     if status_code == 200:
         table_userprocessing.update_item(
             Key={
-                'uuid': guid,
+                'guid': guid,
                 'email': email
             },
             UpdateExpression='SET #department = :val1, '
@@ -88,7 +88,7 @@ def update_record(email, guid, department, division, status_code):
     elif status_code == 404:
         table_userprocessing.update_item(
             Key={
-                'uuid': guid,
+                'guid': guid,
                 'email': email
             },
             UpdateExpression='SET #status_code = :val1',

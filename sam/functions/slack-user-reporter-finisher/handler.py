@@ -53,7 +53,7 @@ def handler(event, context):
 def generate_list(guid):
     user_list = list()
     response = table_userprocessing.query(
-        KeyConditionExpression=Key('uuid').eq(guid),
+        KeyConditionExpression=Key('guid').eq(guid),
         FilterExpression=Attr('status_code').eq(200)
     )
 
