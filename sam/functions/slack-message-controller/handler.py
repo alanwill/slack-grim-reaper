@@ -9,7 +9,6 @@ import hmac
 import hashlib
 import time
 import urllib.parse
-import base64
 from botocore.exceptions import ClientError
 
 # Path to modules needed to package local lambda function for upload
@@ -20,7 +19,7 @@ sys.path.append(os.path.join(currentdir, "./vendored"))
 import requests
 
 # AWS X-Ray
-from aws_xray_sdk.core import xray_recorder
+# from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch_all
 
 patch_all()
@@ -97,7 +96,6 @@ def handler(event, context):
             return {"statusCode": 200}
 
     print("No case fit")
-    return
 
 
 def slack_response(text, channel, ts, attachments):
@@ -114,7 +112,6 @@ def slack_response(text, channel, ts, attachments):
     # print(response.content)
 
     if response.status_code == 200:
-        return
 
 
 def verify_request(secret, body, timestamp, signature):
@@ -148,9 +145,7 @@ def deactivate_users(callback_id, callback_channel):
     guid = callback_id.split(":")[1]
     payload = '{"guid": "' + guid + '", "channel": "' + callback_channel + '"}'
 
-    response = sns.publish(
+    sns.publish(
         TopicArn=sns_topic_deactivate,
         Message='{"default": ' + payload + ', "lambda": ' + payload + ', "email": ' + payload + '}',
     )
-
-    return

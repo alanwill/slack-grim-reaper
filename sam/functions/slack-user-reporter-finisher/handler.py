@@ -19,7 +19,7 @@ sys.path.append(os.path.join(currentdir, "./vendored"))
 import requests
 
 # AWS X-Ray
-from aws_xray_sdk.core import xray_recorder
+# from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch_all
 
 patch_all()

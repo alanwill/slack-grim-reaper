@@ -90,7 +90,6 @@ Resources:
             Parameters:
                 stage: !Ref stage
                 stateMachineUserReporterArn: !GetAtt nestedStackStepfunctions.Outputs.stateMachineUserReporterArn
-                
 
 ###
 # S3 Bucket

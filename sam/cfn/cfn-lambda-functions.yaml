@@ -167,33 +167,33 @@ Resources:
                     SLACK_SECRET: !Ref slackSecret
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
 
-    snsTopicDeprovisionusers: 
+    snsTopicDeprovisionusers:
         Type: AWS::SNS::Topic
-        Properties: 
+        Properties:
             Subscription:
                 -
                     Endpoint: !GetAtt functionUserDeprovisioner.Arn
                     Protocol: "lambda"
 
 Outputs:
-    functionUserListArn: 
+    functionUserListArn:
         Value: !GetAtt functionUserList.Arn
         Description: Lambda function functionUserList Arn
-    functionAdLookupArn: 
+    functionAdLookupArn:
         Value: !GetAtt functionAdLookup.Arn
         Description: Lambda function functionAdLookup Arn
-    functionFinisherArn: 
+    functionFinisherArn:
         Value: !GetAtt functionFinisher.Arn
         Description: Lambda function functionFinisher Arn
-    functionMessageControllerArn: 
+    functionMessageControllerArn:
         Value: !GetAtt functionMessageController.Arn
         Description: Lambda function functionMessageController Arn
-    functionMessageControllerName: 
+    functionMessageControllerName:
         Value: !Ref functionMessageController
         Description: Lambda function functionMessageController Name
-    functionUserDeprovisionerArn: 
+    functionUserDeprovisionerArn:
         Value: !GetAtt functionUserDeprovisioner.Arn
         Description: Lambda function functionUserDeprovisioner Arn
-    functionUserDeprovisionerName: 
+    functionUserDeprovisionerName:
         Value: !Ref functionUserDeprovisioner
         Description: Lambda function functionUserDeprovisioner Name
