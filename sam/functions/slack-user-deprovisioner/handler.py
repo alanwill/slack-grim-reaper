@@ -7,11 +7,6 @@ import os
 import sys
 import json
 import re
-import hmac
-import hashlib
-import time
-import urllib.parse
-import base64
 from botocore.exceptions import ClientError
 
 # Path to modules needed to package local lambda function for upload
@@ -22,7 +17,7 @@ sys.path.append(os.path.join(currentdir, "./vendored"))
 import requests
 
 # AWS X-Ray
-from aws_xray_sdk.core import xray_recorder
+# from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch_all
 
 patch_all()
@@ -65,13 +60,20 @@ def lookup_users(guid):
     user_list = list()
 
     response = table_userprocessing.query(
-        KeyConditionExpression=Key('uuid').eq(guid),
-        FilterExpression=Attr('status_code').ne(200)
+        KeyConditionExpression=Key('guid').eq(guid),
+        FilterExpression=Attr('status_code').eq(404)
     )
 
-    for user in response['Items']:
-        if re.search(r'\bautodesk.com\b', user['email']):
-            user_list.append(user['slack_id'])
+    while 'LastEvaluatedKey' in response:
+        response = table_userprocessing.query(
+            KeyConditionExpression=Key('guid').eq(guid),
+            FilterExpression=Attr('status_code').eq(404),
+            ExclusiveStartKey=response['LastEvaluatedKey']
+        )
+
+        for user in response['Items']:
+            if re.search(r'\bautodesk.com\b', user['email']):
+                user_list.append(user['slack_id'])
 
     print(user_list)
     return user_list

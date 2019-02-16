@@ -19,7 +19,7 @@ sys.path.append(os.path.join(currentdir, "./vendored"))
 import requests
 
 # AWS X-Ray
-from aws_xray_sdk.core import xray_recorder
+# from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch_all
 
 patch_all()
@@ -53,7 +53,7 @@ def handler(event, context):
 def generate_list(guid):
     user_list = list()
     response = table_userprocessing.query(
-        KeyConditionExpression=Key('uuid').eq(guid),
+        KeyConditionExpression=Key('guid').eq(guid),
         FilterExpression=Attr('status_code').eq(200)
     )
 
@@ -156,12 +156,19 @@ def deactivate_user_list(guid):
     user_list = list()
 
     response = table_userprocessing.query(
-        KeyConditionExpression=Key('uuid').eq(guid),
-        FilterExpression=Attr('status_code').ne(200)
+        KeyConditionExpression=Key('guid').eq(guid),
+        FilterExpression=Attr('status_code').eq(404)
     )
 
-    for user in response['Items']:
-        if re.search(r'\bautodesk.com\b', user['email']):
-            user_list.append("<@" + user['slack_id'] + ">")
+    while 'LastEvaluatedKey' in response:
+        response = table_userprocessing.query(
+            KeyConditionExpression=Key('guid').eq(guid),
+            FilterExpression=Attr('status_code').eq(404),
+            ExclusiveStartKey=response['LastEvaluatedKey']
+        )
+
+        for user in response['Items']:
+            if re.search(r'\bautodesk.com\b', user['email']):
+                user_list.append("<@" + user['slack_id'] + ">")
 
     return user_list
