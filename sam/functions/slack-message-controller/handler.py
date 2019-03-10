@@ -111,7 +111,8 @@ def slack_response(text, channel, ts, attachments):
     response = requests.post('https://slack.com/api/chat.update', data=json.dumps(message), headers=headers)
     # print(response.content)
 
-    if response.status_code == 200:
+    if response.status_code != 200:
+        raise Exception({"code": "5000", "message": "ERROR: Received unexpected response from Slack, " + response.text})
 
 
 def verify_request(secret, body, timestamp, signature):
