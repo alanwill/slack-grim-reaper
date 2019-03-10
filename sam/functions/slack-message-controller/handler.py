@@ -46,15 +46,15 @@ def handler(event, context):
         print("Payload doesn't have required fields")
         return {"statusCode": 400, "body": "Bad Request"}
 
-    elif verify_request(secret=slack_secret, body=event['body'],
-                        timestamp=event['headers']['X-Slack-Request-Timestamp'],
-                        signature=event['headers']['X-Slack-Signature']) is False:
+    if verify_request(secret=slack_secret, body=event['body'],
+                      timestamp=event['headers']['X-Slack-Request-Timestamp'],
+                      signature=event['headers']['X-Slack-Signature']) is False:
             print("Signature doesn't match")
             return {"statusCode": 400, "body": "Bad Request"}
 
-    elif verify_request(secret=slack_secret, body=event['body'],
-                        timestamp=event['headers']['X-Slack-Request-Timestamp'],
-                        signature=event['headers']['X-Slack-Signature']) is True:
+    if verify_request(secret=slack_secret, body=event['body'],
+                      timestamp=event['headers']['X-Slack-Request-Timestamp'],
+                      signature=event['headers']['X-Slack-Signature']) is True:
         payload = process_body(body=event['body'])
 
         if payload['actions'][0]['name'] == "no":
@@ -75,7 +75,7 @@ def handler(event, context):
             slack_response(text, channel, ts, attachments)
             return {"statusCode": 200}
 
-        elif payload['actions'][0]['name'] == "yes":
+        if payload['actions'][0]['name'] == "yes":
             print("User clicked YES")
 
             ts = payload['message_ts']
@@ -94,6 +94,8 @@ def handler(event, context):
 
             deactivate_users(callback_id=payload['callback_id'], callback_channel=channel)
             return {"statusCode": 200}
+
+        raise Exception({"code": "4000", "message": "ERROR: No case fit"})
 
     print("No case fit")
 
@@ -129,9 +131,7 @@ def verify_request(secret, body, timestamp, signature):
     if hmac.compare_digest(calculated_signature, signature):
         print("Verify passed")
         return True
-    else:
-        print("Verify failed hmac compare")
-        return False
+    return False
 
 
 def process_body(body):
