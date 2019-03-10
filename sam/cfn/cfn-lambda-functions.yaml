@@ -101,7 +101,7 @@ Resources:
             Description: Creates CSV and uploads to S3
             CodeUri: ../../sam/functions/slack-user-reporter-finisher
             Timeout: 120
-            MemorySize: 128
+            MemorySize: 512
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess

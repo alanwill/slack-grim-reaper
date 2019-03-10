@@ -65,15 +65,15 @@ def lookup_users(guid):
     )
 
     while 'LastEvaluatedKey' in response:
+        for user in response['Items']:
+            if re.search(r'\bautodesk.com\b', user['email']):
+                user_list.append(user['slack_id'])
+
         response = table_userprocessing.query(
             KeyConditionExpression=Key('guid').eq(guid),
             FilterExpression=Attr('status_code').eq(404),
             ExclusiveStartKey=response['LastEvaluatedKey']
         )
-
-        for user in response['Items']:
-            if re.search(r'\bautodesk.com\b', user['email']):
-                user_list.append(user['slack_id'])
 
     print(user_list)
     return user_list
