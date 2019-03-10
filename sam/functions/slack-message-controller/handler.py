@@ -9,7 +9,7 @@ import hmac
 import hashlib
 import time
 import urllib.parse
-from botocore.exceptions import ClientError
+# from botocore.exceptions import ClientError
 
 # Path to modules needed to package local lambda function for upload
 currentdir = os.path.dirname(os.path.realpath(__file__))
