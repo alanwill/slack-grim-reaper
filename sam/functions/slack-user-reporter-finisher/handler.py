@@ -155,11 +155,14 @@ def post_to_slack(url, user_list, guid):
 def deactivate_user_list(guid):
     user_list = list()
 
+    # Execute the initial query
     response = table_userprocessing.query(
         KeyConditionExpression=Key('guid').eq(guid),
         FilterExpression=Attr('status_code').eq(404)
     )
 
+    # If result is paginated, the LastEvaluatedKey field will be returned in the response. Keep paging
+    # until LastEvaluatedKey field is no longer returned, i.e. the last page
     while 'LastEvaluatedKey' in response:
         for user in response['Items']:
             if re.search(r'\bautodesk.com\b', user['email']):
@@ -170,5 +173,11 @@ def deactivate_user_list(guid):
             FilterExpression=Attr('status_code').eq(404),
             ExclusiveStartKey=response['LastEvaluatedKey']
         )
+
+    # Since LastEvaluatedKey is not returned in the last page, in order to grab results in the last page
+    # we need a loop for the final page
+    for user in response['Items']:
+        if re.search(r'\bautodesk.com\b', user['email']):
+            user_list.append("<@" + user['slack_id'] + ">")
 
     return user_list
