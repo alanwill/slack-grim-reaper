@@ -79,7 +79,7 @@ Resources:
             Description: Looks up each Slack user against Azure AD
             CodeUri: ../../sam/functions/slack-user-reporter-adlookup
             Timeout: 900
-            MemorySize: 1536
+            MemorySize: 3072
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
