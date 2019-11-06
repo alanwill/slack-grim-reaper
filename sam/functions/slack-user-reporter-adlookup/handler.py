@@ -79,7 +79,7 @@ def lookup_users(guid):
         if re.search(r'\bautodesk.com\b', user['email']):
             user_list.append(user['email'])
 
-    print(user_list)
+    print("length of user_list is", len(user_list))
     return user_list
 
 
@@ -154,11 +154,10 @@ def azuread_users(user_email, access_token, guid):
         response = requests.request("GET", url, params=querystring, headers=headers)
         response_data = json.loads(response.content)
 
-        if response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
+        # if response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
+        #     process_200(user_email, response_data, response.status_code, guid)
 
-            process_200(user_email, response_data, response.status_code, guid)
-
-    elif response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
+    if response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
         process_200(user_email, response_data, response.status_code, guid)
 
     elif response.status_code == 200 and response_data['value'][0]['accountEnabled'] is False:
