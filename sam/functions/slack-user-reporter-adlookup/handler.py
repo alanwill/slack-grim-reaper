@@ -158,7 +158,18 @@ def azuread_users(user_email, access_token, guid):
         #     process_200(user_email, response_data, response.status_code, guid)
 
     if response.status_code == 200 and response_data['value'][0]['accountEnabled'] is True:
-        process_200(user_email, response_data, response.status_code, guid)
+        url = "https://graph.microsoft.com/beta/users/" + user_email
+        response = requests.request("GET", url, headers=headers)
+        response2_data = json.loads(response.content)
+
+        if response.status_code == 200 and response2_data['accountEnabled'] is True:
+            process_200(user_email, response_data, response.status_code, guid)
+        elif response.status_code == 404:
+            update_record(email=user_email,
+                            guid=guid,
+                            department="",
+                            division="",
+                            status_code=404)
 
     elif response.status_code == 200 and response_data['value'][0]['accountEnabled'] is False:
         update_record(email=user_email,
