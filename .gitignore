@@ -159,5 +159,6 @@ fabric.properties
 .idea/httpRequests
 
 # AWS SAM 
+.vscode
 sam/layers/build
 sam-output.yaml
