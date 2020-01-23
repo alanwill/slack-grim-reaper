@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Slack Grim Reaper
+
+Parameters:
+    stage:
+        Type: String
+        AllowedValues:
+          - alpha
+          - beta
+          - prod
+        Description: Enter alpha, beta or prod to designate the deployment stage/environment
+
+Resources:
+###
+# Nested Stacks
+###
+    nestedStackLambda:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-lambda-functions.yaml
+            Parameters:
+                stage: !Ref stage
+                s3Bucket: !Ref s3Bucket
+                dynamodbTableUserProcessing: !GetAtt nestedStackDynamodb.Outputs.dynamodbTableUserProcessing
+
+    nestedStackApigateway:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-api-gateways.yaml
+            Parameters:
+                stage: !Ref stage
+                functionSlackMessengerArn: !GetAtt nestedStackLambda.Outputs.functionSlackMessengerArn
+
+    nestedStackDynamodb:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-dynamodb-tables.yaml
+
+    nestedStackStepfunctions:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-stepfunctions-stepmachines.yaml
+            Parameters:
+                functionUserListArn: !GetAtt nestedStackLambda.Outputs.functionUserListArn
+                functionAdLookupArn: !GetAtt nestedStackLambda.Outputs.functionAdLookupArn
+                functionSummarizerArn: !GetAtt nestedStackLambda.Outputs.functionSummarizerArn
+                functionSlackMessengerArn: !GetAtt nestedStackLambda.Outputs.functionSlackMessengerArn
+                functionUserDeactivatorArn: !GetAtt nestedStackLambda.Outputs.functionUserDeactivatorArn
+
+    nestedStackCloudwatch:
+        Type: AWS::Serverless::Application
+        Properties:
+            Location: sam/cfn/cfn-cloudwatch.yaml
+            Parameters:
+                stage: !Ref stage
+                stateMachineGrimreaperArn: !GetAtt nestedStackStepfunctions.Outputs.stateMachineGrimreaperArn
+
+###
+# S3 Bucket
+###
+    s3Bucket:
+        Type: AWS::S3::Bucket
+
+
+Outputs:
+    slackGrimReaperRequestUrl:
+        Value: !GetAtt nestedStackApigateway.Outputs.slackGrimReaperRequestUrl
+        Description: Slack Request URL

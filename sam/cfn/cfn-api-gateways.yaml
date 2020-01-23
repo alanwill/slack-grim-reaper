@@ -5,9 +5,7 @@ Description: API Gateway resources
 Parameters:
     stage:
         Type: String
-    functionMessageControllerName:
-        Type: String
-    functionMessageControllerArn:
+    functionSlackMessengerArn:
         Type: String
 
 Resources:
@@ -35,7 +33,7 @@ Resources:
         Properties: 
             RetentionInDays: 7
 
-    apigatewaySlack:
+    apigatewaySlackGrimReaper:
         Type: AWS::ApiGateway::RestApi
         Properties:
             Name: !Join [ "-", [ "slack-grim-reaper", !Ref stage ] ]
@@ -47,28 +45,28 @@ Resources:
     apigatewayProxyResource:
         Type: AWS::ApiGateway::Resource
         Properties:
-            RestApiId: !Ref apigatewaySlack
-            ParentId: !GetAtt [apigatewaySlack, RootResourceId]
+            RestApiId: !Ref apigatewaySlackGrimReaper
+            ParentId: !GetAtt [apigatewaySlackGrimReaper, RootResourceId]
             PathPart: '{proxy+}'
         
     apigatewayResourceANY:
         Type: AWS::ApiGateway::Method
         Properties:
-            RestApiId: !Ref apigatewaySlack
+            RestApiId: !Ref apigatewaySlackGrimReaper
             ResourceId: !Ref apigatewayProxyResource
             HttpMethod: POST      
             AuthorizationType: NONE
             Integration:
                 Type: AWS_PROXY
                 IntegrationHttpMethod: POST
-                Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${functionMessageControllerArn}/invocations
+                Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${functionSlackMessengerArn}/invocations
 
-    apigatewaySlackStage:
+    apigatewaySlackGrimReaperStage:
         Type: AWS::ApiGateway::Stage
         Properties:
             StageName: !Ref stage
-            RestApiId: !Ref apigatewaySlack
-            DeploymentId: !Ref apigatewaySlackDeployment
+            RestApiId: !Ref apigatewaySlackGrimReaper
+            DeploymentId: !Ref apigatewaySlackGrimReaperDeployment
             TracingEnabled: true
             AccessLogSetting: 
                 DestinationArn: !GetAtt cwlSlackGrimReaper.Arn
@@ -80,16 +78,21 @@ Resources:
                     DataTraceEnabled: true
                     LoggingLevel: ERROR
     
-    apigatewaySlackDeployment: 
+    apigatewaySlackGrimReaperDeployment:
         Type: AWS::ApiGateway::Deployment
         DependsOn: apigatewayResourceANY
         Properties: 
-            RestApiId: !Ref apigatewaySlack
+            RestApiId: !Ref apigatewaySlackGrimReaper
 
     permissionSlackConnector:
         Type: AWS::Lambda::Permission
         Properties:
-            FunctionName: !Ref functionMessageControllerName
+            FunctionName: !Select [6, !Split [ ":", !Ref functionSlackMessengerArn ]]
             Action: lambda:InvokeFunction
             Principal: apigateway.amazonaws.com
-            SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${apigatewaySlack}/*"
+            SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${apigatewaySlackGrimReaper}/*"
+
+Outputs:
+    slackGrimReaperRequestUrl:
+        Value: !Sub "https://${apigatewaySlackGrimReaper}.execute-api.${AWS::Region}.amazonaws.com/${apigatewaySlackGrimReaperStage}/action"
+        Description: Slack Request URL

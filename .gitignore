@@ -158,6 +158,15 @@ fabric.properties
 # Editor-based Rest Client
 .idea/httpRequests
 
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
 # AWS SAM 
-sam/layers/build
+sam/layers/*/python
 sam-output.yaml
+samconfig.toml

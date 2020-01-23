@@ -8,31 +8,34 @@ Resources:
         Properties:
             AttributeDefinitions:
                 -
-                    AttributeName: guid
+                    AttributeName: pk
                     AttributeType: "S"
                 -
-                    AttributeName: email
+                    AttributeName: sk
                     AttributeType: "S"
                 -
-                    AttributeName: status_code
-                    AttributeType: "N"
+                    AttributeName: is_ad_active
+                    AttributeType: "S"
             KeySchema:
                 -
-                    AttributeName: guid
+                    AttributeName: pk
                     KeyType: HASH
                 -
-                    AttributeName: email
+                    AttributeName: sk
                     KeyType: RANGE
             BillingMode: PAY_PER_REQUEST
             GlobalSecondaryIndexes:
                 -
-                    IndexName: gsiStatusCode
+                    IndexName: gsiIsAdActive
                     KeySchema:
                         -
-                            AttributeName: status_code
+                            AttributeName: is_ad_active
                             KeyType: HASH
                     Projection:
                         ProjectionType: ALL
+            TimeToLiveSpecification:
+                AttributeName: expiration_time
+                Enabled: True
 
 Outputs:
     dynamodbTableUserProcessing: 
