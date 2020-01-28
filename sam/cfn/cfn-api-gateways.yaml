@@ -49,7 +49,7 @@ Resources:
             ParentId: !GetAtt [apigatewaySlackGrimReaper, RootResourceId]
             PathPart: '{proxy+}'
 
-            apigatewayResourceANY:
+    apigatewayResourceANY:
         Type: AWS::ApiGateway::Method
         Properties:
             RestApiId: !Ref apigatewaySlackGrimReaper
@@ -78,7 +78,7 @@ Resources:
                     DataTraceEnabled: true
                     LoggingLevel: ERROR
 
-                    apigatewaySlackGrimReaperDeployment:
+    apigatewaySlackGrimReaperDeployment:
         Type: AWS::ApiGateway::Deployment
         DependsOn: apigatewayResourceANY
         Properties:
