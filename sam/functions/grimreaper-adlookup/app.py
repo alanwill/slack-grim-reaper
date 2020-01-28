@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 
 import boto3
 import requests
@@ -190,6 +191,7 @@ def dynamodb_write(job_uuid, processed_users):
                     "sk": i[0],
                     "email": i[1],
                     "is_ad_active": i[2],
-                    "department": i[3]
+                    "department": i[3],
+                    "expiration_time": int(time.time() + 1296000)  # 15 days
                 }
             )

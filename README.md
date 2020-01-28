@@ -8,6 +8,14 @@ The Grim Reaper is a Slack App that deactivates user accounts no longer associat
 
 Grim Reaper is built wholy in AWS and is initiated via a daily Cloudwatch Rules job. All compute components are Lambda based and the workflow is orchestrated using Step Functions. There is an API Gateway for receiving responses from Slack as part of the bot's messenger feature. The entire application is codified and deployed using SAM.
 
-## Design
+## Logical Design
+
+The following logical design represents the Step Functions steps:
 
 ![logical design](assets/stepfunctions_graph.png)
+
+## Physical Design
+
+The following physical design represents the overall AWS architecture:
+
+![physical design](assets/grim_reaper_physical.png)

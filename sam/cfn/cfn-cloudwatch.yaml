@@ -32,16 +32,15 @@ Resources:
                                 Action: "states:StartExecution"
                                 Resource: !Ref stateMachineGrimreaperArn
 
-    deprovisionerSchedule: 
+    deprovisionerSchedule:
         Type: AWS::Events::Rule
-        Properties: 
+        Properties:
             Description: "Grim Reaper daily invocation rule"
             ScheduleExpression: "cron(9 17 * * ? *)"
-            State: "DISABLED"
-            Targets: 
-                - 
+            State: "ENABLED"
+            Targets:
+                -
                     Arn: !Ref stateMachineGrimreaperArn
-                    Id: "StateMachineReporter.1"
+                    Id: "StateMachineGrimReaper.1"
+                    Input: "{}"
                     RoleArn: !GetAtt iamRoleEventRuleDeprovisioner.Arn
-
-
