@@ -15,7 +15,7 @@ Resources:
             AssumeRolePolicyDocument:
                 Version: 2012-10-17
                 Statement:
-                - 
+                -
                     Effect: Allow
                     Action: sts:AssumeRole
                     Principal:
@@ -25,12 +25,12 @@ Resources:
 
     apiAccount:
         Type: AWS::ApiGateway::Account
-        Properties: 
+        Properties:
             CloudWatchRoleArn: !GetAtt iamRoleCloudwatchLogs.Arn
 
-    cwlSlackGrimReaper: 
+    cwlSlackGrimReaper:
         Type: AWS::Logs::LogGroup
-        Properties: 
+        Properties:
             RetentionInDays: 7
 
     apigatewaySlackGrimReaper:
@@ -41,20 +41,20 @@ Resources:
             EndpointConfiguration:
                 Types:
                 - EDGE
-        
+
     apigatewayProxyResource:
         Type: AWS::ApiGateway::Resource
         Properties:
             RestApiId: !Ref apigatewaySlackGrimReaper
             ParentId: !GetAtt [apigatewaySlackGrimReaper, RootResourceId]
             PathPart: '{proxy+}'
-        
-    apigatewayResourceANY:
+
+            apigatewayResourceANY:
         Type: AWS::ApiGateway::Method
         Properties:
             RestApiId: !Ref apigatewaySlackGrimReaper
             ResourceId: !Ref apigatewayProxyResource
-            HttpMethod: POST      
+            HttpMethod: POST
             AuthorizationType: NONE
             Integration:
                 Type: AWS_PROXY
@@ -68,20 +68,20 @@ Resources:
             RestApiId: !Ref apigatewaySlackGrimReaper
             DeploymentId: !Ref apigatewaySlackGrimReaperDeployment
             TracingEnabled: true
-            AccessLogSetting: 
+            AccessLogSetting:
                 DestinationArn: !GetAtt cwlSlackGrimReaper.Arn
             MethodSettings:
-                - 
+                -
                     ResourcePath: /
-                    HttpMethod: '*' 
+                    HttpMethod: '*'
                     MetricsEnabled: true
                     DataTraceEnabled: true
                     LoggingLevel: ERROR
-    
-    apigatewaySlackGrimReaperDeployment:
+
+                    apigatewaySlackGrimReaperDeployment:
         Type: AWS::ApiGateway::Deployment
         DependsOn: apigatewayResourceANY
-        Properties: 
+        Properties:
             RestApiId: !Ref apigatewaySlackGrimReaper
 
     permissionSlackConnector:

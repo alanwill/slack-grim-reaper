@@ -38,7 +38,7 @@ Resources:
                 Enabled: True
 
 Outputs:
-    dynamodbTableUserProcessing: 
+    dynamodbTableUserProcessing:
         Value: !Ref tableUserProcessing
         Description: User Processing DynamoDB table
 
