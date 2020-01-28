@@ -5,7 +5,7 @@ Description: CloudWatch resources
 Parameters:
     stage:
         Type: String
-    stateMachineUserReporterArn:
+    stateMachineGrimreaperArn:
         Type: String
 
 Resources:
@@ -30,18 +30,17 @@ Resources:
                             -
                                 Effect: "Allow"
                                 Action: "states:StartExecution"
-                                Resource: !Ref stateMachineUserReporterArn
+                                Resource: !Ref stateMachineGrimreaperArn
 
-    deprovisionerSchedule: 
+    deprovisionerSchedule:
         Type: AWS::Events::Rule
-        Properties: 
+        Properties:
             Description: "Grim Reaper daily invocation rule"
-            ScheduleExpression: "cron(0 17 * * ? *)"
+            ScheduleExpression: "cron(9 17 * * ? *)"
             State: "ENABLED"
-            Targets: 
-                - 
-                    Arn: !Ref stateMachineUserReporterArn
-                    Id: "StateMachineReporter.1"
+            Targets:
+                -
+                    Arn: !Ref stateMachineGrimreaperArn
+                    Id: "StateMachineGrimReaper.1"
+                    Input: "{}"
                     RoleArn: !GetAtt iamRoleEventRuleDeprovisioner.Arn
-
-

@@ -5,22 +5,6 @@ Description: Lambda function resources
 Parameters:
     stage:
         Type: String
-    slackToken:
-        Type: String
-    slackAdminToken:
-        Type: String
-    slackSecret:
-        Type: String
-    slackChannel:
-        Type: String
-    azureTenantId:
-        Type: String
-    azureClientId:
-        Type: String
-    azureClientSecret:
-        Type: String
-    layerBucket:
-        Type: String
     dynamodbTableUserProcessing:
         Type: String
     s3Bucket:
@@ -28,32 +12,48 @@ Parameters:
 
 Globals:
     Function:
-        Runtime: python3.6
-        Handler: handler.handler
+        Runtime: python3.7
+        Handler: app.handler
         MemorySize: 128
         Timeout: 30
 
 Resources:
-    layerMain:
+    layerRequests:
         Type: AWS::Serverless::LayerVersion
         Properties:
-            LayerName: Grim-Reaper-Main
-            Description: Main Python libraries for the Grim Reaper app
-            ContentUri:
-                Bucket: !Ref layerBucket
-                Key: grim-reaper_layer.zip
+            LayerName: Grim-Reaper-Requests
+            Description: Python requests library
+            ContentUri: ../layers/requests
             CompatibleRuntimes:
-                - python3.6
-            RetentionPolicy: Retain
+                - python3.7
+            RetentionPolicy: Delete
+
+    layerXray:
+        Type: AWS::Serverless::LayerVersion
+        Properties:
+            LayerName: Grim-Reaper-Xray
+            Description: Python aws_xray_sdk library for tracing
+            ContentUri: ../layers/xray
+            CompatibleRuntimes:
+                - python3.7
+            RetentionPolicy: Delete
+
+    layerGrimreapercommon:
+        Type: AWS::Serverless::LayerVersion
+        Properties:
+            LayerName: Grim-Reaper-Common
+            Description: Common code shared by all Grim Reaper functions
+            ContentUri: ../layers/grimreaper_common
+            CompatibleRuntimes:
+                - python3.7
+            RetentionPolicy: Delete
 
     functionUserList:
         Type: AWS::Serverless::Function
         Properties:
-            FunctionName: !Join [ "-", [ "slack-user-reporter-userlist", !Ref stage ] ]
-            Description: Generates a list of all slack users with non-disabled accounts
-            CodeUri: ../../sam/functions/slack-user-reporter-userlist
-            Timeout: 900
-            MemorySize: 1024
+            Description: Generates a list of all slack users
+            CodeUri: ../../sam/functions/grimreaper-userlist
+            Timeout: 5
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
@@ -65,115 +65,116 @@ Resources:
                         Effect: Allow
                         Resource: '*'
             Layers:
-                - !Ref layerMain
+                - !Ref layerXray
+                - !Ref layerRequests
+                - !Ref layerGrimreapercommon
             Environment:
                 Variables:
                     STAGE: !Ref stage
-                    SLACK_TOKEN: !Ref slackToken
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
 
     functionAdLookup:
         Type: AWS::Serverless::Function
         Properties:
-            FunctionName: !Join [ "-", [ "slack-user-reporter-adlookup", !Ref stage ] ]
             Description: Looks up each Slack user against Azure AD
-            CodeUri: ../../sam/functions/slack-user-reporter-adlookup
-            Timeout: 900
-            MemorySize: 3008
+            CodeUri: ../../sam/functions/grimreaper-adlookup
+            Timeout: 180
+            MemorySize: 256
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
                 - DynamoDBCrudPolicy:
                     TableName: !Ref dynamodbTableUserProcessing
+                - Statement:
+                    -
+                        Action: [ 'ssm:GetParameter', 'secretsmanager:GetSecretValue' ]
+                        Effect: Allow
+                        Resource: '*'
             Layers:
-                - !Ref layerMain
+                - !Ref layerXray
+                - !Ref layerRequests
+                - !Ref layerGrimreapercommon
             Environment:
                 Variables:
-                    AZURE_TENANT_ID: !Ref azureTenantId
-                    AZURE_CLIENT_ID: !Ref azureClientId
-                    AZURE_CLIENT_SECRET: !Ref azureClientSecret
+                    STAGE: !Ref stage
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
 
-    functionFinisher:
+    functionSummarizer:
         Type: AWS::Serverless::Function
         Properties:
-            FunctionName: !Join [ "-", [ "slack-user-reporter-finisher", !Ref stage ] ]
-            Description: Creates CSV and uploads to S3
-            CodeUri: ../../sam/functions/slack-user-reporter-finisher
-            Timeout: 120
-            MemorySize: 512
+            Description: Summarizes user active/inactive split and generates S3 CSV
+            CodeUri: ../../sam/functions/grimreaper-summarizer
+            Timeout: 60
+            MemorySize: 256
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-                - DynamoDBReadPolicy:
+                - DynamoDBCrudPolicy:
                     TableName: !Ref dynamodbTableUserProcessing
                 - S3CrudPolicy:
                     BucketName: !Ref s3Bucket
             Layers:
-                - !Ref layerMain
+                - !Ref layerXray
+                - !Ref layerGrimreapercommon
             Environment:
                 Variables:
+                    STAGE: !Ref stage
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
                     S3_BUCKET_NAME: !Ref s3Bucket
-                    SLACK_TOKEN: !Ref slackToken
-                    SLACK_CHANNEL: !Ref slackChannel
 
-    functionMessageController:
+    functionSlackMessenger:
         Type: AWS::Serverless::Function
         Properties:
-            FunctionName: !Join [ "-", [ "slack-message-controller", !Ref stage ] ]
-            Description: Slack message controller
-            CodeUri: ../../sam/functions/slack-message-controller
-            Timeout: 120
-            MemorySize: 128
+            Description: Sends messages to Slack for approvals, confirmations and notifications
+            CodeUri: ../../sam/functions/grimreaper-slackmessenger
             Tracing: Active
             Policies:
                 - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-                - SNSPublishMessagePolicy:
-                    TopicName: !GetAtt snsTopicDeprovisionusers.TopicName
-            Layers:
-                - !Ref layerMain
-            Environment:
-                Variables:
-                    S3_BUCKET_NAME: !Ref s3Bucket
-                    SLACK_SECRET: !Ref slackSecret
-                    SLACK_TOKEN: !Ref slackToken
-                    SNS_TOPIC_DEACTIVATE: !Ref snsTopicDeprovisionusers
-
-    functionUserDeprovisioner:
-        Type: AWS::Serverless::Function
-        Properties:
-            FunctionName: !Join [ "-", [ "slack-user-deprovisioner", !Ref stage ] ]
-            Description: Slack user deprovisioner
-            CodeUri: ../../sam/functions/slack-user-deprovisioner
-            Timeout: 120
-            MemorySize: 128
-            Tracing: Active
-            Events:
-                snsDeprovisioner:
-                    Type: SNS
-                    Properties:
-                        Topic: !Ref snsTopicDeprovisionusers
-            Policies:
-                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-                - DynamoDBReadPolicy:
+                - DynamoDBCrudPolicy:
                     TableName: !Ref dynamodbTableUserProcessing
+                - Statement:
+                    -
+                        Action: [ 'ssm:GetParameter', 'secretsmanager:GetSecretValue' ]
+                        Effect: Allow
+                        Resource: '*'
+                - Statement:
+                    -
+                        Action: [ 'states:SendTaskSuccess', 'states:SendTaskFailure' ]
+                        Effect: Allow
+                        Resource: '*'
             Layers:
-                - !Ref layerMain
+                - !Ref layerXray
+                - !Ref layerGrimreapercommon
+                - !Ref layerRequests
             Environment:
                 Variables:
-                    SLACK_TOKEN: !Ref slackToken
-                    SLACK_ADMIN_TOKEN: !Ref slackAdminToken
-                    SLACK_SECRET: !Ref slackSecret
+                    STAGE: !Ref stage
                     USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
 
-    snsTopicDeprovisionusers:
-        Type: AWS::SNS::Topic
+    functionUserDeactivator:
+        Type: AWS::Serverless::Function
         Properties:
-            Subscription:
-                -
-                    Endpoint: !GetAtt functionUserDeprovisioner.Arn
-                    Protocol: "lambda"
+            Description: Deactivates Slack users
+            CodeUri: ../../sam/functions/grimreaper-deactivator
+            Timeout: 180
+            Tracing: Active
+            Policies:
+                - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+                - DynamoDBCrudPolicy:
+                    TableName: !Ref dynamodbTableUserProcessing
+                - Statement:
+                    -
+                        Action: [ 'ssm:GetParameter', 'secretsmanager:GetSecretValue' ]
+                        Effect: Allow
+                        Resource: '*'
+            Layers:
+                - !Ref layerXray
+                - !Ref layerGrimreapercommon
+                - !Ref layerRequests
+            Environment:
+                Variables:
+                    STAGE: !Ref stage
+                    USER_PROCESSING_TABLE: !Ref dynamodbTableUserProcessing
 
 Outputs:
     functionUserListArn:
@@ -182,18 +183,12 @@ Outputs:
     functionAdLookupArn:
         Value: !GetAtt functionAdLookup.Arn
         Description: Lambda function functionAdLookup Arn
-    functionFinisherArn:
-        Value: !GetAtt functionFinisher.Arn
-        Description: Lambda function functionFinisher Arn
-    functionMessageControllerArn:
-        Value: !GetAtt functionMessageController.Arn
-        Description: Lambda function functionMessageController Arn
-    functionMessageControllerName:
-        Value: !Ref functionMessageController
-        Description: Lambda function functionMessageController Name
-    functionUserDeprovisionerArn:
-        Value: !GetAtt functionUserDeprovisioner.Arn
-        Description: Lambda function functionUserDeprovisioner Arn
-    functionUserDeprovisionerName:
-        Value: !Ref functionUserDeprovisioner
-        Description: Lambda function functionUserDeprovisioner Name
+    functionSummarizerArn:
+        Value: !GetAtt functionSummarizer.Arn
+        Description: Lambda function functionSummarizer Arn
+    functionSlackMessengerArn:
+        Value: !GetAtt functionSlackMessenger.Arn
+        Description: Lambda function functionMessenger Arn
+    functionUserDeactivatorArn:
+        Value: !GetAtt functionUserDeactivator.Arn
+        Description: Lambda function functionUserDeactivator Arn

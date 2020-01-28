@@ -7,11 +7,15 @@ Parameters:
         Type: String
     functionAdLookupArn:
         Type: String
-    functionFinisherArn:
+    functionSummarizerArn:
+        Type: String
+    functionSlackMessengerArn:
+        Type: String
+    functionUserDeactivatorArn:
         Type: String
 
 Resources:
-    iamRoleStateMachineUserReporter:
+    iamRoleStateMachineGrimreaper:
         Type: AWS::IAM::Role
         Properties:
             AssumeRolePolicyDocument:
@@ -34,48 +38,192 @@ Resources:
                                 Action: "lambda:InvokeFunction"
                                 Resource: "*"
 
-    stateMachineUserReporter:
+    stateMachineGrimreaper:
         Type: AWS::StepFunctions::StateMachine
         Properties:
             DefinitionString:
                 !Sub
                     - |-
                         {
-                            "Comment": "Slack User Reporter",
-                            "StartAt": "DetermineSlackUserCount",
+                            "Comment": "Slack Grim Reaper",
+                            "StartAt": "SlackDetermineUserCount",
                             "States": {
-                                
-                                "DetermineSlackUserCount": {
+                                "SlackDetermineUserCount": {
                                     "Type": "Task",
-                                    "Comment": "Looks up Slack users and determines count",
+                                    "Comment": "Query for all Slack members",
                                     "Resource": "${lambdaFunctionUserListArn}",
+                                    "TimeoutSeconds": 120,
                                     "ResultPath": "$",
-                                    "Next": "AdLookup"
+                                    "Catch": [
+                                        {
+                                            "ErrorEquals": [
+                                                "TooManyRequestsException"
+                                            ],
+                                            "Next": "SlackThrottleRetry"
+                                        }
+                                    ],
+                                    "Next": "SlackPaginateDecision"
                                 },
-                                "AdLookup": {
-                                    "Comment": "Query each user against Azure AD",
+                                "SlackPaginateDecision": {
+                                    "Type": "Choice",
+                                    "Choices": [
+                                        {
+                                            "Variable": "$.paginate",
+                                            "NumericEquals": 1,
+                                            "Next": "SlackWait"
+                                        },
+                                        {
+                                            "Variable": "$.paginate",
+                                            "NumericEquals": 0,
+                                            "Next": "AzureLookup"
+                                        }
+                                    ]
+                                },
+                                "SlackWait": {
+                                    "Type": "Wait",
+                                    "SecondsPath": "$.wait",
+                                    "Next": "SlackDetermineUserCount"
+                                },
+                                "SlackThrottleRetry": {
+                                    "Type": "Pass",
+                                    "Next": "SlackWait"
+                                },
+                                "AzureLookup": {
                                     "Type": "Task",
+                                    "Comment": "Query Azure AD for all Slack members",
                                     "Resource": "${lambdaFunctionAdLookupArn}",
+                                    "TimeoutSeconds": 300,
                                     "ResultPath": "$",
-                                    "Next": "Finisher"
+                                    "Retry": [
+                                        {
+                                            "ErrorEquals": [
+                                                "States.Timeout"
+                                            ],
+                                            "IntervalSeconds": 3,
+                                            "MaxAttempts": 2,
+                                            "BackoffRate": 1.5
+                                        },
+                                        {
+                                            "ErrorEquals": [
+                                                "ConnectionError"
+                                            ],
+                                            "IntervalSeconds": 3,
+                                            "MaxAttempts": 2,
+                                            "BackoffRate": 1.5
+                                        },
+                                        {
+                                            "ErrorEquals": [
+                                                "States.ALL"
+                                            ],
+                                            "IntervalSeconds": 5,
+                                            "MaxAttempts": 3,
+                                            "BackoffRate": 1.5
+                                        }
+                                    ],
+                                    "Catch": [
+                                        {
+                                            "ErrorEquals": [
+                                                "TooManyRequestsException"
+                                            ],
+                                            "Next": "AzureThrottleRetry"
+                                        }
+                                    ],
+                                    "Next": "AzureProcessMore"
                                 },
-                                "Finisher": {
-                                    "Comment": "Create CSV and send results to S3",
+                                "AzureProcessMore": {
+                                    "Type": "Choice",
+                                    "Choices": [
+                                        {
+                                            "Variable": "$.count",
+                                            "NumericGreaterThanEquals": 1,
+                                            "Next": "AzureLookup"
+                                        },
+                                        {
+                                            "Variable": "$.count",
+                                            "NumericEquals": 0,
+                                            "Next": "Summarize"
+                                        }
+                                    ]
+                                },
+                                "AzureWait": {
+                                    "Type": "Wait",
+                                    "SecondsPath": "$.wait",
+                                    "Next": "AzureLookup"
+                                },
+                                "AzureThrottleRetry": {
+                                    "Type": "Pass",
+                                    "Next": "AzureWait"
+                                },
+                                "Summarize": {
                                     "Type": "Task",
-                                    "Resource": "${lambdaFunctionFinisherArn}",
+                                    "Comment": "Summarize active vs inactive users",
+                                    "Resource": "${lambdaFunctionSummarizerArn}",
+                                    "TimeoutSeconds": 120,
+                                    "ResultPath": "$",
+                                    "Next": "GetApproval"
+                                },
+                                "GetApproval": {
+                                    "Type": "Task",
+                                    "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+                                    "HeartbeatSeconds": 172800,
+                                    "Parameters": {
+                                        "FunctionName": "${lambdaFunctionSlackMessenger}",
+                                        "Payload": {
+                                            "message_type.$": "$.message_type",
+                                            "job_uuid.$": "$.job_uuid",
+                                            "active_user_report_link.$": "$.active_user_report_link",
+                                            "task_token.$": "$$.Task.Token"
+                                        }
+                                    },
+                                    "Next": "Approved",
+                                    "Catch": [
+                                        {
+                                            "ErrorEquals": [
+                                                "denied"
+                                            ],
+                                            "Next": "Denied"
+                                        }
+                                    ]
+                                },
+                                "Approved": {
+                                    "Type": "Pass",
+                                    "ResultPath": "$",
+                                    "Next": "DeactivateUsers"
+                                },
+                                "Denied": {
+                                    "Type": "Pass",
+                                    "Result": "Approval request to deactivate users denied. Exiting gracefully until tomorrow...",
                                     "End": true
-                                
+                                },
+                                "DeactivateUsers": {
+                                    "Type": "Task",
+                                    "Comment": "Deactivate Slack users",
+                                    "Resource": "${lambdaFunctionDeactivatorArn}",
+                                    "TimeoutSeconds": 180,
+                                    "ResultPath": "$",
+                                    "Next": "Confirm"
+                                },
+                                "Confirm": {
+                                    "Type": "Task",
+                                    "Comment": "Confirm deactivation status",
+                                    "Resource": "${lambdaFunctionSlackMessengerArn}",
+                                    "TimeoutSeconds": 30,
+                                    "ResultPath": "$",
+                                    "End": true
                                 }
                             }
                         }
                     - {lambdaFunctionUserListArn: !Ref functionUserListArn,
                         lambdaFunctionAdLookupArn: !Ref functionAdLookupArn,
-                        lambdaFunctionFinisherArn: !Ref functionFinisherArn}
-            RoleArn: !GetAtt [ iamRoleStateMachineUserReporter, Arn ]
+                        lambdaFunctionSummarizerArn: !Ref functionSummarizerArn,
+                        lambdaFunctionDeactivatorArn: !Ref functionUserDeactivatorArn,
+                        lambdaFunctionSlackMessengerArn: !Ref functionSlackMessengerArn,
+                        lambdaFunctionSlackMessenger: !Select [6, !Split [ ":", !Ref functionSlackMessengerArn ]]}
+            RoleArn: !GetAtt [ iamRoleStateMachineGrimreaper, Arn ]
 
 
 Outputs:
-    stateMachineUserReporterArn: 
-        Value: !Ref stateMachineUserReporter
+    stateMachineGrimreaperArn:
+        Value: !Ref stateMachineGrimreaper
         Description: State Machine ARN
 
