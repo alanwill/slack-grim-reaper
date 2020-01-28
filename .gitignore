@@ -168,9 +168,15 @@ fabric.properties
 
 # AWS SAM 
 <<<<<<< HEAD
+<<<<<<< HEAD
 .vscode
 sam/layers/build
 sam-output.yaml
+=======
+sam/layers/*/python
+sam-output.yaml
+samconfig.toml
+>>>>>>> 41d45a9224f6319cc017a9ded7475a8687a01a94
 =======
 sam/layers/*/python
 sam-output.yaml
